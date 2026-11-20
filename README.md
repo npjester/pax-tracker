@@ -4,7 +4,7 @@ An unofficial, invite-only PAX Unplugged booth planner. React + Vite serves the 
 
 ## Set up the backend
 
-1. Use separate Supabase projects for preview and production. Apply `supabase/migrations/20261120182500_tracker.sql` in each project's SQL Editor. The database enforces account ownership on both tables, including the parent booth for each game.
+1. Use separate Supabase projects for preview and production. Apply the files in `supabase/migrations/` in filename order in each project's SQL Editor. The database enforces account ownership on both tables, including the parent booth for each game.
 2. In Authentication, enable the Email provider and disable **Allow new users to sign up**. Under **Users**, create or invite an account for each approved email address. If creating users manually, mark their emails confirmed; don't share the temporary passwords. The app uses email codes rather than passwords.
 3. Configure [custom SMTP](https://supabase.com/docs/guides/auth/auth-smtp) first; hosted Supabase requires it to edit email templates. Then go to **Authentication > Email Templates > Magic Link or OTP**, set the subject to `Your PAX Tracker sign-in code`, and paste [the email template](supabase/templates/magic-link-or-otp.html) into the body. Keep `{{ .Token }}` intact: Supabase replaces it with the one-time code.
 4. Copy `.env.example` to `.env.local` and use the preview project's URL and **publishable** key. Only these public values belong in Vite environment variables; never use a service-role key or an SMTP credential there.
@@ -17,3 +17,5 @@ An unofficial, invite-only PAX Unplugged booth planner. React + Vite serves the 
 - Before merging, sign in with an approved test user on two devices or browser profiles. Load the shortlist, mark a booth visited on one, and refresh the other. Then try a second account and confirm it starts with an empty list.
 
 Checklist data is stored in Supabase; the browser only stores the auth session. The **Refresh** button fetches changes made on another device. **Export list** downloads a human-readable snapshot; it is not an import or restore format. Offline edits are not supported.
+
+**Find an expo booth** loads the public 2026 PAX Unplugged exhibitor directory on demand. Search by exhibitor or booth number, then import a stop or explicitly update a matching booth number without changing your progress. If the directory is offline, you can still add a booth manually.

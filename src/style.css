@@ -96,8 +96,14 @@ summary span { float: right; color: var(--muted); font: .8rem/1.8 var(--mono); }
 .game-list input:checked + span { text-decoration: line-through; color: var(--muted); }
 .inline-form { display: flex; gap: .4rem; margin-block: .5rem; }
 .booth-notes p { white-space: pre-wrap; font-size: .92rem; }
-.empty, .add-booth { display: grid; gap: .8rem; }
-.empty button { justify-self: start; }
+.empty, .add-booth, .expo-lookup { display: grid; gap: .8rem; }
+.empty button, .expo-lookup > button { justify-self: start; }
+.expo-lookup p:empty, .expo-results:empty { display: none; }
+.expo-results { margin: 0; padding: 0; list-style: none; }
+.expo-results li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .5rem 1rem; padding: .6rem 0; border-top: 1px solid var(--line); }
+.expo-results li div { min-width: 0; }
+.expo-results li strong { overflow-wrap: anywhere; }
+.expo-results li p { font-size: .88rem; }
 .sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
 @media (min-width: 640px) {

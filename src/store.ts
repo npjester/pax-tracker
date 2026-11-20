@@ -11,7 +11,7 @@ export type Booth = {
   games: Game[];
 } & Record<Goal, boolean>;
 
-type BoothFields = Pick<Booth, 'name' | 'booth_number' | 'priority'>;
+type BoothFields = Pick<Booth, 'name' | 'booth_number' | 'priority'> & Partial<Pick<Booth, 'id'>>;
 type BoothPatch = Partial<Omit<Booth, 'id' | 'games'>>;
 const boothColumns = 'id,name,booth_number,priority,visited,notes,demo,buy,promo';
 const gameColumns = 'id,title,checked';

@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { goals, type Priority } from './shortlist';
+import { boothNumberLimit, expoPage } from './expo';
+import { ExpoLookup } from './expo-lookup';
 import * as store from './store';
 import type { Booth, Game } from './store';
 
@@ -80,7 +82,7 @@ function BoothCard({ booth, busy, update, game, addGame }: {
       if (Object.keys(patch).length === 0 || await update(patch)) setEditor(null);
     }}>
       <div className="fields">
-        <label>Booth number<input maxLength={24} value={editor.draft.booth_number} onChange={(e) => setEditor({ ...editor, draft: { ...editor.draft, booth_number: e.target.value } })} /></label>
+        <label>Booth number<input maxLength={boothNumberLimit} value={editor.draft.booth_number} onChange={(e) => setEditor({ ...editor, draft: { ...editor.draft, booth_number: e.target.value } })} /></label>
         <label>Priority<select value={editor.draft.priority} onChange={(e) => setEditor({ ...editor, draft: { ...editor.draft, priority: e.target.value as Priority } })}>
           {Object.entries(priorities).map(([id, title]) => <option key={id} value={id}>{title}</option>)}
         </select></label>
@@ -178,8 +180,11 @@ export function Tracker({ email }: { email?: string }) {
     }, () => {}, 'sign out')}>Sign out</button></div>
     <section className="tracker-hero">
       <div><p className="eyebrow"><span className="dot" /> TABLETOP EXPO FIELD GUIDE</p><h1>My booth <em>tracker.</em></h1>
-        <p>Verify booth numbers and game availability with the <a href="https://unplugged.paxsite.com/" target="_blank" rel="noreferrer">official PAX Unplugged guide</a>.</p></div>
-      <a className="primary button" href="#add-booth">+ Add booth</a>
+        <p>Verify booth numbers and game availability with the <a href={expoPage} target="_blank" rel="noreferrer">official PAX Unplugged guide</a>.</p></div>
+      {booths && <div className="actions">
+        <a className="primary button" href="#expo-lookup">Find an expo booth</a>
+        <a className="button" href="#add-booth">Add manually</a>
+      </div>}
     </section>
     <section className="stats" aria-label="Checklist progress">
       <div><span>BOOTHS VISITED</span><strong>{visited}<small> / {list.length}</small></strong></div>
@@ -217,11 +222,18 @@ export function Tracker({ email }: { email?: string }) {
         <p>Load the 13-booth starter shortlist from the prototype, or add your own booth below. The shortlist isn’t an official exhibitor directory.</p>
         <button className="primary" disabled={busy} onClick={() => void run(store.loadShortlist, setBooths, 'load shortlist')}>Load starter shortlist</button>
       </section>}
+      <ExpoLookup booths={list} busy={busy} onImport={async (entry) => {
+        const saved = await run(() => store.addBooth({ ...entry, priority: 'regular' }),
+          (booth) => setBooths((items) => [...(items ?? []), booth]), 'import exhibitor');
+        if (saved) { setFilter('all'); setQuery(''); }
+        return saved;
+      }} onUpdate={(booth, entry) => run(() => store.updateBooth(booth.id, { booth_number: entry.booth_number }),
+        (saved) => editBooth(booth.id, (b) => ({ ...b, ...saved })), 'update booth number')} />
       <section id="add-booth" className="panel add-booth">
         <h2>Add a custom booth</h2>
         <form className="add-form" onSubmit={addBooth}>
           <label>Exhibitor name<input name="name" required maxLength={100} placeholder="Publisher or exhibitor" /></label>
-          <label>Booth number<input name="booth" maxLength={24} placeholder="Optional" /></label>
+          <label>Booth number<input name="booth" maxLength={boothNumberLimit} placeholder="Optional" /></label>
           <button className="primary" disabled={busy}>Add booth</button>
         </form>
       </section>
