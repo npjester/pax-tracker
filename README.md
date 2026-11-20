@@ -6,7 +6,7 @@ An unofficial, invite-only PAX Unplugged booth planner. React + Vite serves the 
 
 1. Use separate Supabase projects for preview and production. Apply `supabase/migrations/20261120182500_tracker.sql` in each project's SQL Editor. The database enforces account ownership on both tables, including the parent booth for each game.
 2. In Authentication, enable the Email provider and disable **Allow new users to sign up**. Under **Users**, create or invite an account for each approved email address. If creating users manually, mark their emails confirmed; don't share the temporary passwords. The app uses email codes rather than passwords.
-3. Under **Email Templates**, update **Magic Link** to include the one-time code instead of a link, for example `<p>Your PAX Tracker sign-in code is <strong>{{ .Token }}</strong>.</p>`. The same template is used to send codes. Before production, configure [custom SMTP](https://supabase.com/docs/guides/auth/auth-smtp); Supabase's default sender is restricted to project team addresses and has strict rate limits.
+3. Configure [custom SMTP](https://supabase.com/docs/guides/auth/auth-smtp) first; hosted Supabase requires it to edit email templates. Then go to **Authentication > Email Templates > Magic Link or OTP**, set the subject to `Your PAX Tracker sign-in code`, and paste [the email template](supabase/templates/magic-link-or-otp.html) into the body. Keep `{{ .Token }}` intact: Supabase replaces it with the one-time code.
 4. Copy `.env.example` to `.env.local` and use the preview project's URL and **publishable** key. Only these public values belong in Vite environment variables; never use a service-role key or an SMTP credential there.
 
 ## Run and deploy
