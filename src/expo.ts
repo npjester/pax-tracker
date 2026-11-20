@@ -1,10 +1,16 @@
 export const expoPage = 'https://unplugged.paxsite.com/philly/en-us/expo-hall.html';
 export const expoYear = 2026;
 // This event identifier is published in the official expo page's browser widget.
-const expoFeed = 'https://conventions.leapevent.tech/api/space_orders?key=50cbfcc3-af7e-4089-892e-004fceeb57ef&category=20455';
+const eventKey = '50cbfcc3-af7e-4089-892e-004fceeb57ef';
+const expoFeed = `https://conventions.leapevent.tech/api/space_orders?key=${eventKey}&category=20455`;
+export const expoGamesFeed = `https://conventions.leapevent.tech/api/space_order_specials?type=exclusive&key=${eventKey}`;
 
 export const boothNumberLimit = 96;
 export type Exhibitor = { id: string; name: string; booth_number: string };
+
+export function exhibitorId(id: unknown) {
+  return typeof id === 'string' && /^\d{1,20}$/.test(id) ? `paxu-${expoYear}-${id}` : undefined;
+}
 
 export function parseDirectory(payload: unknown): Exhibitor[] {
   if (!payload || typeof payload !== 'object' || !('space_orders' in payload) || !Array.isArray(payload.space_orders)) {
@@ -12,11 +18,11 @@ export function parseDirectory(payload: unknown): Exhibitor[] {
   }
   const entries = new Map<string, Exhibitor>();
   for (const row of payload.space_orders) {
-    if (!row || typeof row.id !== 'string' || !/^\d{1,20}$/.test(row.id) || typeof row.company !== 'string') continue;
+    const id = row && exhibitorId(row.id);
+    if (!id || typeof row.company !== 'string') continue;
     const name = row.company.trim();
     const booth_number = typeof row.booth === 'string' ? row.booth.trim() : '';
     if (!name || name.length > 100 || booth_number.length > boothNumberLimit) continue;
-    const id = `paxu-${expoYear}-${row.id}`;
     if (!entries.has(id)) entries.set(id, { id, name, booth_number });
   }
   if (!entries.size) throw new Error('The official directory is empty or unavailable.');

@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { goals, type Priority } from './shortlist';
-import { boothNumberLimit, expoPage } from './expo';
+import { boothNumberLimit, expoPage, type Exhibitor } from './expo';
 import { ExpoLookup } from './expo-lookup';
+import { CollectionPanel } from './collection-panel';
 import * as store from './store';
 import type { Booth, Game } from './store';
 
@@ -99,7 +100,7 @@ function BoothCard({ booth, busy, update, game, addGame }: {
   </article>;
 }
 
-export function Tracker({ email }: { email?: string }) {
+export function Tracker({ ownerId, email }: { ownerId: string; email?: string }) {
   const [booths, setBooths] = useState<Booth[] | null>(null);
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<Filter>('all');
@@ -162,6 +163,13 @@ export function Tracker({ email }: { email?: string }) {
     setBooths((items) => items?.map((item) => item.id === id ? change(item) : item) ?? null);
   }
 
+  async function importExhibitor(entry: Exhibitor) {
+    const saved = await run(() => store.addBooth({ ...entry, priority: 'regular' }),
+      (booth) => setBooths((items) => [...(items ?? []), booth]), 'import exhibitor');
+    if (saved) { setFilter('all'); setQuery(''); }
+    return saved;
+  }
+
   const list = booths ?? [];
   const visited = list.filter((b) => b.visited).length;
   const must = list.filter((b) => b.priority === 'must' && !b.visited).length;
@@ -183,6 +191,7 @@ export function Tracker({ email }: { email?: string }) {
         <p>Verify booth numbers and game availability with the <a href={expoPage} target="_blank" rel="noreferrer">official PAX Unplugged guide</a>.</p></div>
       {booths && <div className="actions">
         <a className="primary button" href="#expo-lookup">Find an expo booth</a>
+        <a className="button" href="#bgg-collection">BGG collection</a>
         <a className="button" href="#add-booth">Add manually</a>
       </div>}
     </section>
@@ -222,12 +231,8 @@ export function Tracker({ email }: { email?: string }) {
         <p>Load the 13-booth starter shortlist from the prototype, or add your own booth below. The shortlist isn’t an official exhibitor directory.</p>
         <button className="primary" disabled={busy} onClick={() => void run(store.loadShortlist, setBooths, 'load shortlist')}>Load starter shortlist</button>
       </section>}
-      <ExpoLookup booths={list} busy={busy} onImport={async (entry) => {
-        const saved = await run(() => store.addBooth({ ...entry, priority: 'regular' }),
-          (booth) => setBooths((items) => [...(items ?? []), booth]), 'import exhibitor');
-        if (saved) { setFilter('all'); setQuery(''); }
-        return saved;
-      }} onUpdate={(booth, entry) => run(() => store.updateBooth(booth.id, { booth_number: entry.booth_number }),
+      <CollectionPanel ownerId={ownerId} booths={list} busy={busy} onImport={importExhibitor} />
+      <ExpoLookup booths={list} busy={busy} onImport={importExhibitor} onUpdate={(booth, entry) => run(() => store.updateBooth(booth.id, { booth_number: entry.booth_number }),
         (saved) => editBooth(booth.id, (b) => ({ ...b, ...saved })), 'update booth number')} />
       <section id="add-booth" className="panel add-booth">
         <h2>Add a custom booth</h2>

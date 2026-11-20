@@ -89,7 +89,7 @@ function App() {
 
   return <><Masthead />
     {!ready ? <main className="shell loading" role="status">Checking your sign-in…</main> :
-      session ? <Tracker key={session.user.id} email={session.user.email} /> : <SignIn />}
+      session ? <Tracker key={session.user.id} ownerId={session.user.id} email={session.user.email} /> : <SignIn />}
     <footer className="shell footer">PAX TRACKER <span>Unofficial personal planner · Not affiliated with PAX</span></footer>
   </>;
 }

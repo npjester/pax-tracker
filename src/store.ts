@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { shortlist, type Goal, type Priority } from './shortlist';
+import type { CollectionGame } from './collection';
 
 const url = import.meta.env.VITE_SUPABASE_URL;
 const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
@@ -55,6 +56,22 @@ export async function checkGame(id: string, checked: boolean) {
   const { data, error } = await db().from('games').update({ checked }).eq('id', id).select(gameColumns).single();
   if (error) throw error;
   return data;
+}
+
+export async function getCollection(ownerId: string): Promise<CollectionGame[] | null> {
+  const { data, error } = await db().from('bgg_collections').select('games').eq('owner_id', ownerId).maybeSingle();
+  if (error) throw error;
+  return data?.games ?? null;
+}
+
+export async function saveCollection(ownerId: string, games: CollectionGame[]) {
+  const { error } = await db().from('bgg_collections').upsert({ owner_id: ownerId, games }, { onConflict: 'owner_id' });
+  if (error) throw error;
+}
+
+export async function removeCollection(ownerId: string) {
+  const { error } = await db().from('bgg_collections').delete().eq('owner_id', ownerId);
+  if (error) throw error;
 }
 
 export function errorMessage(error: unknown) {
