@@ -227,9 +227,12 @@ export function Tracker({ ownerId, email }: { ownerId: string; email?: string })
             editBooth(booth.id, (b) => ({ ...b, games: [...b.games, saved] })), 'add game')} />)}</div>
         {!shown.length && <div className="panel empty"><p>No booths match these filters.</p><button onClick={() => { setFilter('all'); setQuery(''); }}>Clear filters</button></div>}
       </> : <section className="panel empty">
-        <p className="eyebrow">FIRST STOP</p><h2>Start your checklist.</h2>
-        <p>Load the 13-booth starter shortlist from the prototype, or add your own booth below. The shortlist isn’t an official exhibitor directory.</p>
-        <button className="primary" disabled={busy} onClick={() => void run(store.loadShortlist, setBooths, 'load shortlist')}>Load starter shortlist</button>
+        <p className="eyebrow">YOUR FIELD GUIDE</p><h2>Your checklist is ready.</h2>
+        <p>Search the official expo directory and add booths you want to visit, or enter a stop manually.</p>
+        <div className="actions">
+          <a className="primary button" href="#expo-lookup">Find an expo booth</a>
+          <a className="button" href="#add-booth">Add manually</a>
+        </div>
       </section>}
       <CollectionPanel ownerId={ownerId} booths={list} busy={busy} onImport={importExhibitor} />
       <ExpoLookup booths={list} busy={busy} onImport={importExhibitor} onUpdate={(booth, entry) => run(() => store.updateBooth(booth.id, { booth_number: entry.booth_number }),
