@@ -98,7 +98,7 @@ export function CollectionPanel({ ownerId, booths, busy, onImport }: {
   return <section id="bgg-collection" className="panel expo-lookup" aria-labelledby="bgg-heading">
     <p className="eyebrow">PERSONALIZED EXPO STOPS</p>
     <h2 id="bgg-heading">BoardGameGeek collection</h2>
-    <p>In BoardGameGeek, open <strong>Collection</strong> and use <strong>Download board games → all</strong>. Upload the CSV here. Only game IDs, titles, owned and want flags, and your ratings sync to your private account; the original file isn’t saved.</p>
+    <p>In BoardGameGeek, open <strong>Collection</strong> and use <strong>Download board games → all</strong>. Upload the CSV here. Only game IDs, titles, publisher names, owned and want flags, and your ratings sync to your private account; the original file isn’t saved.</p>
     {loading && <p role="status">Loading your saved collection…</p>}
     {loaded && <form className="add-form" onSubmit={importCollection}>
       <label>BGG collection CSV<input type="file" name="collection" accept=".csv,text/csv" required disabled={loading || saving} /></label>
@@ -113,7 +113,9 @@ export function CollectionPanel({ ownerId, booths, busy, onImport }: {
     <p role="status">{message}</p>
     {hasCollection && <>
       <h3>Suggested booths</h3>
-      <p>Matches come from the <a href={gamesPage} target="_blank" rel="noreferrer">official PAX Games &amp; Goods listings</a>, not the full show inventory.</p>
+      {games.every((game) => !game.publishers?.length) &&
+        <p>Replace your saved CSV to enable publisher matches; your previous import didn’t include publisher data.</p>}
+      <p>Game-title matches come from the <a href={gamesPage} target="_blank" rel="noreferrer">official PAX Games &amp; Goods listings</a>; publisher matches use the full exhibitor directory.</p>
       {catalogError ? <>
         <p className="error" role="alert">{catalogError}</p>
         <button onClick={() => setCatalogAttempt((n) => n + 1)}>Retry PAX listings</button>
@@ -123,7 +125,9 @@ export function CollectionPanel({ ownerId, booths, busy, onImport }: {
             {choices.slice(0, limit).map(({ booth, reasons }) => <li key={booth.id}>
               <div>
                 <strong>{booth.name}</strong><p>{booth.booth_number ? `Booth ${booth.booth_number}` : 'Booth TBD'}</p>
-                {reasons.map(({ title, reason }) => <p key={title}>{title} · {reason}</p>)}
+                {reasons.map(({ title, reason, source }) => <p key={`${source}:${title}`}>
+                  {source === 'game' ? `PAX lists ${title}` : `Publisher match: ${title}`} · {reason}
+                </p>)}
               </div>
               {matchingBooth(booth, booths) ? <span className="tag">In checklist</span> :
                 <button disabled={busy || saving} onClick={async () => {
