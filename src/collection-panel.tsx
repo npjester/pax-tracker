@@ -12,6 +12,7 @@ export function CollectionPanel({ ownerId, booths, busy, onImport }: {
   const [loaded, setLoaded] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [importing, setImporting] = useState(false);
   const [refresh, setRefresh] = useState(0);
   const [catalog, setCatalog] = useState<{ booths: Exhibitor[]; games: ExpoGame[] } | null>(null);
   const [catalogError, setCatalogError] = useState('');
@@ -24,6 +25,7 @@ export function CollectionPanel({ ownerId, booths, busy, onImport }: {
   useEffect(() => {
     let active = true;
     setLoading(true);
+    setLoaded(false);
     setError('');
     void store.getCollection(ownerId).then((data) => {
       if (active) { setGames(data); setLoaded(true); }
@@ -41,7 +43,7 @@ export function CollectionPanel({ ownerId, booths, busy, onImport }: {
     const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(10000)]);
     setCatalogError('');
     setCatalog(null);
-    const listings = fetch(expoGamesFeed, { signal }).then(async (response) => {
+    const listings = fetch(expoGamesFeed, { signal, cache: 'no-store' }).then(async (response) => {
       if (!response.ok) throw new Error('Games & Goods listings are unavailable.');
       return parseExpoGames(await response.json());
     });
@@ -54,6 +56,30 @@ export function CollectionPanel({ ownerId, booths, busy, onImport }: {
   }, [hasCollection, catalogAttempt]);
 
   const choices = useMemo(() => games && catalog ? suggestBooths(games, catalog.booths, catalog.games) : [], [games, catalog]);
+  const ownedChoices = useMemo(() => games && catalog ? suggestBooths(games.filter((game) => game.owned), catalog.booths, catalog.games) : [], [games, catalog]);
+  const ownedToImport = ownedChoices.filter(({ booth }) => !matchingBooth(booth, booths));
+
+  async function importOwned() {
+    setImporting(true);
+    setError('');
+    setMessage('');
+    const knownBooths: Exhibitor[] = [...booths];
+    let added = 0;
+    try {
+      for (const { booth } of ownedToImport) {
+        if (matchingBooth(booth, knownBooths)) continue;
+        if (!await onImport(booth)) {
+          setError(`Couldn’t add ${booth.name}. ${added} booth${added === 1 ? '' : 's'} added before the error. Refresh and try again.`);
+          return;
+        }
+        knownBooths.push(booth);
+        added++;
+      }
+      setMessage(`Added ${added} booth${added === 1 ? '' : 's'} for owned games to your checklist.`);
+    } finally {
+      setImporting(false);
+    }
+  }
 
   async function importCollection(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -80,7 +106,9 @@ export function CollectionPanel({ ownerId, booths, busy, onImport }: {
   }
 
   async function remove() {
-    if (!window.confirm('Remove the saved BGG collection from all devices? Your booth checklist will stay as it is.')) return;
+    if (!window.confirm(store.localPreview
+      ? 'Remove the saved BGG collection from this browser? Your booth checklist will stay as it is.'
+      : 'Remove the saved BGG collection from all devices? Your booth checklist will stay as it is.')) return;
     setSaving(true);
     setError('');
     setMessage('');
@@ -96,23 +124,30 @@ export function CollectionPanel({ ownerId, booths, busy, onImport }: {
   }
 
   return <section id="bgg-collection" className="panel expo-lookup" aria-labelledby="bgg-heading">
-    <p className="eyebrow">PERSONALIZED EXPO STOPS</p>
     <h2 id="bgg-heading">BoardGameGeek collection</h2>
-    <p>In BoardGameGeek, open <strong>Collection</strong> and use <strong>Download board games → all</strong>. Upload the CSV here. Only game IDs, titles, publisher names, owned and want flags, and your ratings sync to your private account; the original file isn’t saved.</p>
+    <p>In BoardGameGeek, open <strong>Collection</strong> and use <strong>Download board games → all</strong>. Upload the CSV here. Only game IDs, titles, publisher names, owned and want flags, and your ratings {store.localPreview ? 'are saved in this browser' : 'sync to your private account'}; the original file isn’t saved.</p>
     {loading && <p role="status">Loading your saved collection…</p>}
     {loaded && <form className="add-form" onSubmit={importCollection}>
-      <label>BGG collection CSV<input type="file" name="collection" accept=".csv,text/csv" required disabled={loading || saving} /></label>
-      <button className="primary" disabled={loading || saving}>{saving ? 'Saving…' : hasCollection ? 'Replace saved collection' : 'Import & sync collection'}</button>
+      <label>BGG collection CSV<input type="file" name="collection" accept=".csv,text/csv" required disabled={loading || saving || importing} /></label>
+      <button className="primary" disabled={loading || saving || importing}>{saving ? 'Saving…' : hasCollection ? 'Replace saved collection' : 'Import & sync collection'}</button>
     </form>}
     <div className="actions">
       {hasCollection && <span>{games.length.toLocaleString()} games saved</span>}
-      <button className="text-button" disabled={loading || saving} onClick={() => { setMessage(''); setRefresh((n) => n + 1); }}>Refresh collection</button>
-      {hasCollection && <button className="text-button" disabled={loading || saving} onClick={() => void remove()}>Remove collection</button>}
+      {!hasCollection && !loading && <button className="text-button" disabled={saving || importing} onClick={() => setRefresh((n) => n + 1)}>Reload saved collection</button>}
+      {!loaded && hasCollection && !loading && <button className="text-button" disabled={saving || importing} onClick={() => { setRefresh((n) => n + 1); setCatalogAttempt((n) => n + 1); }}>Retry refresh</button>}
+      {hasCollection && <button className="text-button" disabled={loading || saving || importing} onClick={() => void remove()}>Remove collection</button>}
     </div>
     {error && <p className="error" role="alert">{error}</p>}
     <p role="status">{message}</p>
-    {hasCollection && <>
+    {hasCollection && loaded && !loading && <>
       <h3>Suggested booths</h3>
+      <p>Refresh to use the latest saved collection and PAX listings. To update your BGG collection, export and upload a new CSV first.</p>
+      <div className="actions">
+        <button disabled={saving || importing || busy} onClick={() => { setMessage(''); setLimit(10); setRefresh((n) => n + 1); setCatalogAttempt((n) => n + 1); }}>Refresh suggestions</button>
+        {catalog && <button className="primary" disabled={busy || saving || importing || !ownedToImport.length} onClick={() => void importOwned()}>
+          {importing ? 'Importing booths…' : `Import owned-game booths (${ownedToImport.length})`}
+        </button>}
+      </div>
       {games.every((game) => !game.publishers?.length) &&
         <p>Replace your saved CSV to enable publisher matches; your previous import didn’t include publisher data.</p>}
       <p>Game-title matches come from the <a href={gamesPage} target="_blank" rel="noreferrer">official PAX Games &amp; Goods listings</a>; publisher matches use the full exhibitor directory.</p>
@@ -120,7 +155,7 @@ export function CollectionPanel({ ownerId, booths, busy, onImport }: {
         <p className="error" role="alert">{catalogError}</p>
         <button onClick={() => setCatalogAttempt((n) => n + 1)}>Retry PAX listings</button>
       </> : !catalog ? <p role="status">Finding PAX matches…</p> :
-        choices.length === 0 ? <p>No exact title matches in the published PAX listings.</p> :
+        choices.length === 0 ? <p>No matching titles or publishers were found in the published PAX listings.</p> :
           <ul className="expo-results">
             {choices.slice(0, limit).map(({ booth, reasons }) => <li key={booth.id}>
               <div>
@@ -130,7 +165,7 @@ export function CollectionPanel({ ownerId, booths, busy, onImport }: {
                 </p>)}
               </div>
               {matchingBooth(booth, booths) ? <span className="tag">In checklist</span> :
-                <button disabled={busy || saving} onClick={async () => {
+                <button disabled={busy || saving || importing} onClick={async () => {
                   setMessage(await onImport(booth) ? `Added ${booth.name} to your checklist.` : `Couldn’t add ${booth.name}. Refresh your checklist or try again.`);
                 }}>Add to checklist<span className="sr-only">: {booth.name}</span></button>}
             </li>)}

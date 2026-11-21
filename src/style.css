@@ -63,6 +63,9 @@ textarea { resize: vertical; }
 .tracker { display: grid; align-content: start; gap: 1.25rem; }
 .actions { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; }
 .account { justify-content: flex-end; color: var(--muted); font-size: .85rem; padding-top: .5rem; overflow-wrap: anywhere; }
+.page-nav { display: flex; flex-wrap: wrap; gap: .25rem 1.25rem; border-bottom: 1px solid var(--line); }
+.page-nav a { color: var(--muted); text-decoration: none; padding: .65rem .15rem; border-bottom: 2px solid transparent; }
+.page-nav a:hover, .page-nav a[aria-current="page"] { color: var(--paper); border-bottom-color: var(--orange); }
 .tracker-hero { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 1rem; }
 .tracker-hero h1 { margin-block: .6rem .8rem; }
 .stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .5rem; }

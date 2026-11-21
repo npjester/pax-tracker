@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { createRoot } from 'react-dom/client';
 import type { Session } from '@supabase/supabase-js';
 import { Tracker } from './tracker';
-import { errorMessage, supabase } from './store';
+import { errorMessage, localPreview, supabase } from './store';
 import './style.css';
 
 function Masthead() {
@@ -89,6 +89,7 @@ function App() {
 
   return <><Masthead />
     {!ready ? <main className="shell loading" role="status">Checking your sign-in…</main> :
+      localPreview ? <Tracker ownerId="local-preview" email="Local preview · saved in this browser" /> :
       session ? <Tracker key={session.user.id} ownerId={session.user.id} email={session.user.email} /> : <SignIn />}
     <footer className="shell footer">PAX TRACKER <span>Unofficial personal planner · Not affiliated with PAX</span></footer>
   </>;

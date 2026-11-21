@@ -30,7 +30,7 @@ export function parseDirectory(payload: unknown): Exhibitor[] {
 }
 
 export async function fetchDirectory(signal: AbortSignal) {
-  const response = await fetch(expoFeed, { signal: AbortSignal.any([signal, AbortSignal.timeout(10000)]) });
+  const response = await fetch(expoFeed, { signal: AbortSignal.any([signal, AbortSignal.timeout(10000)]), cache: 'no-store' });
   if (!response.ok) throw new Error('The official directory could not be loaded.');
   return parseDirectory(await response.json());
 }
