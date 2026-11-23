@@ -111,14 +111,18 @@ summary span { float: right; color: var(--muted); font: .8rem/1.8 var(--mono); }
 .map-intro { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .75rem 1rem; align-items: start; }
 .map-intro div { display: grid; gap: .5rem; max-width: 70ch; }
 .map-controls { display: grid; gap: .75rem; }
+.map-location-choices { display: grid; gap: .75rem; max-width: 42rem; }
 .map-selection { display: flex; flex-wrap: wrap; gap: .4rem 1.25rem; border: 1px solid var(--line); border-radius: .65rem; padding: .8rem 1rem; }
 .map-selection label { display: flex; align-items: center; gap: .5rem; min-height: 44px; }
 .map-layout { display: grid; gap: 1rem; }
 .map-surface { min-width: 0; border: 1px solid var(--line); border-radius: .75rem; background: var(--panel); overflow: hidden; }
 .map-caption { display: flex; justify-content: space-between; gap: 1rem; padding: 1rem; border-bottom: 1px solid var(--line); }
+.map-caption div { display: grid; align-content: center; gap: .25rem; }
 .map-caption span, .route-list li span { color: var(--muted); font-size: .85rem; }
+.map-zoom { min-height: 44px; padding: .35rem .75rem; }
 .map-scroll { overflow-x: auto; }
 .map-scroll svg { display: block; min-width: 720px; width: 100%; }
+.map-scroll-fit svg { min-width: 0; }
 .map-aisle { stroke: #706876; stroke-width: 1; stroke-dasharray: 4 5; fill: none; }
 .map-route { stroke: var(--orange); stroke-width: 3; stroke-linejoin: round; fill: none; }
 .map-booth { fill: #45414f; stroke: #938b99; }
