@@ -38,8 +38,13 @@ export function parseCollection(csv: string): CollectionGame[] {
   }
   const games = new Map<string, CollectionGame>();
   for (const row of parsed.data) {
-    const publisherField = row.boardgamepublisher || row.publisher || '';
-    const publishers = publisherField.split(/[,;|]/).map((publisher) => publisher.trim()).filter((publisher) => publisher.length > 1 && publisher.length <= 160);
+    const decode = (value: string) => value.replace(/&amp;/gi, '&');
+    const listed = decode(row.boardgamepublisher || row.publisher || '').split(/[,;|]/);
+    // Version publishers can contain commas ("Rock, Stone & Dice Games"), so only split on ; and |.
+    const versions = decode(row.versionpublishers || '').split(/[;|]/);
+    const publishers = [...listed, ...versions]
+      .map((publisher) => publisher.replace(/\(self-published\)/i, '').trim())
+      .filter((publisher) => publisher.length > 1 && publisher.length <= 160);
     const owned = marked(row.own);
     const wanted = marked(row.wishlist) || marked(row.wanttobuy) || marked(row.wanttoplay);
     const number = Number(row.rating);
