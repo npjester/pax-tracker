@@ -12,6 +12,8 @@ select public.load_shortlist('[{"id":"test-booth","name":"First booth","booth_nu
 update public.booths set visited = true, notes = 'Private notes' where id = 'test-booth';
 update public.games set checked = true where id = 'test-game';
 insert into public.bgg_collections (games) values ('[{"id":"123","title":"Private game","owned":true,"wanted":false,"rating":8}]');
+insert into public.game_plans (kind, title) values ('buy', 'Private game');
+select public.import_games_to_buy('["Private game", "Another game"]');
 select public.load_shortlist('[{"id":"test-booth","name":"First booth","booth_number":"100","priority":"must","demo":true,"buy":false,"promo":false,"games":[{"id":"test-game","title":"First game"}]}]');
 
 do $$
@@ -33,6 +35,13 @@ begin
 
   if exists (select from public.bgg_collections) then
     raise exception 'One account could see another account''s collection';
+  end if;
+  if exists (select from public.game_plans) then
+    raise exception 'One account could see another account''s game lists';
+  end if;
+  delete from public.game_plans where title = 'Private game';
+  if found then
+    raise exception 'One account could delete another account''s game';
   end if;
 
   delete from public.bgg_collections where owner_id = '00000000-0000-4000-8000-000000000001';
@@ -71,6 +80,8 @@ begin
   if has_table_privilege('public.booths', 'SELECT')
     or has_table_privilege('public.games', 'SELECT')
     or has_table_privilege('public.bgg_collections', 'SELECT')
+    or has_table_privilege('public.game_plans', 'SELECT')
+    or has_function_privilege('public.import_games_to_buy(jsonb)', 'EXECUTE')
     or has_function_privilege('public.load_shortlist(jsonb)', 'EXECUTE') then
     raise exception 'Anonymous clients have checklist permissions';
   end if;
