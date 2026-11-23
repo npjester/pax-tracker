@@ -27,8 +27,8 @@ export function MapPage({ booths }: { booths: Booth[] }) {
   return <section className="map-page" aria-labelledby="map-heading">
     <div className="map-intro">
       <div>
-        <h2 id="map-heading">Hall B map</h2>
-        <p>{mappedBooths.length} booths in part of Hall B are mapped. Routes are approximate; check the <a href={officialMap} target="_blank" rel="noreferrer">official 2026 expo map</a> and follow on-site signs.</p>
+        <h2 id="map-heading">Expo hall map</h2>
+        <p>{mappedBooths.length} booths in parts of Halls A and B are mapped. Routes are approximate; check the <a href={officialMap} target="_blank" rel="noreferrer">official 2026 expo map</a> and follow on-site signs.</p>
       </div>
       <span className="tag">Partial map · prototype</span>
     </div>
@@ -78,10 +78,10 @@ export function MapPage({ booths }: { booths: Booth[] }) {
     </div>}
     <div className="map-layout">
       <div className="map-surface">
-        <div className="map-caption"><div><strong>Hall B</strong><span>{fitMap ? 'Full map overview' : 'Swipe or scroll to explore'}</span></div><button type="button" className="map-zoom" onClick={() => setFitMap(!fitMap)}>{fitMap ? 'Show detail' : 'Fit map'}</button></div>
-        <div className={`map-scroll${fitMap ? ' map-scroll-fit' : ''}`} tabIndex={0} aria-label="Scroll the partial Hall B map horizontally">
-          <svg viewBox="105 -5 940 1165" role="img" aria-labelledby="aisle-title aisle-description">
-            <title id="aisle-title">Partial Hall B map</title>
+        <div className="map-caption"><div><strong>Halls A &amp; B</strong><span>{fitMap ? 'Full map overview' : 'Swipe or scroll to explore'}</span></div><button type="button" className="map-zoom" onClick={() => setFitMap(!fitMap)}>{fitMap ? 'Show detail' : 'Fit map'}</button></div>
+        <div className={`map-scroll${fitMap ? ' map-scroll-fit' : ''}`} tabIndex={0} aria-label="Scroll the partial expo hall map horizontally">
+          <svg viewBox="105 -5 1550 1165" role="img" aria-labelledby="aisle-title aisle-description">
+            <title id="aisle-title">Partial expo hall map</title>
             <desc id="aisle-description">Mapped booths and approximate aisles near the Queue entrance. The route and excluded stops are also listed below.</desc>
             {aisles.map(({ x1, y1, x2, y2 }) => <path key={`${x1},${y1}-${x2},${y2}`} d={`M ${x1} ${y1} L ${x2} ${y2}`} className="map-aisle" />)}
             <rect x="136" y="895" width="154" height="240" rx="3" className="map-obstacle" />

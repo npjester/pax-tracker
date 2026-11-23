@@ -123,7 +123,7 @@ summary span { float: right; color: var(--muted); font: .8rem/1.8 var(--mono); }
 .map-caption span, .route-list li span { color: var(--muted); font-size: .85rem; }
 .map-zoom { min-height: 44px; padding: .35rem .75rem; }
 .map-scroll { overflow-x: auto; }
-.map-scroll svg { display: block; min-width: 720px; width: 100%; }
+.map-scroll svg { display: block; min-width: 1180px; width: 100%; }
 .map-scroll-fit svg { min-width: 0; }
 .map-aisle { stroke: #706876; stroke-width: 1; stroke-dasharray: 4 5; fill: none; }
 .map-route { stroke: var(--orange); stroke-width: 3; stroke-linejoin: round; fill: none; }

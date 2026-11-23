@@ -59,7 +59,22 @@ const obstacles = [
   { number: 'BC3', x: 543, y: 746, width: 30, height: 30 },
   { number: 'B2', x: 860, y: 339, width: 30, height: 30 },
   { number: 'B3', x: 865, y: 746, width: 30, height: 30 },
+  { number: 'AB2', x: 1176, y: 339, width: 30, height: 30 },
+  { number: 'AB3', x: 1183, y: 751, width: 30, height: 30 },
+  { number: 'A2', x: 1502, y: 339, width: 30, height: 30 },
+  { number: 'A3', x: 1502, y: 751, width: 30, height: 30 },
 ];
+
+test('routes between the Queue, Hall B and newly mapped Hall A booths', () => {
+  const { mapped, unmapped } = partitionStops([
+    booth('hall-b', '1821'), booth('hall-a-north', '3342'), booth('hall-a-south', '3209'),
+  ]);
+  assert.equal(unmapped.length, 0);
+  const route = planRoute({ kind: 'entrance', id: 'queue' }, mapped);
+  assert.equal(route.stops.length, 3);
+  assert.ok(route.points.some((point) => point.x > 1200 && point.y === 1018));
+  assert.deepEqual(new Set(route.stops.map((stop) => stop.booth.id)), new Set(['hall-b', 'hall-a-north', 'hall-a-south']));
+});
 
 function crossesInterior(a, b, rectangle) {
   return a.x === b.x

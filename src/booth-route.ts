@@ -1,5 +1,5 @@
 import type { Booth } from './store.ts';
-import { aisles, mappedBooths, queueEntrance, type MapPosition } from './hall-b-map.ts';
+import { aisles, mappedBooths, queueEntrance, type MapPosition } from './expo-map.ts';
 
 export { aisles, mappedBooths, queueEntrance };
 export type { MapPosition };
@@ -79,9 +79,12 @@ function buildGraph() {
 }
 
 const graph = buildGraph();
+const shortestPathCache = new Map<string, { distances: Map<string, number>; previous: Map<string, string> }>();
 
 function shortestPaths(start: Point) {
   const source = pointKey(start);
+  const cached = shortestPathCache.get(source);
+  if (cached) return cached;
   const distances = new Map<string, number>([[source, 0]]);
   const previous = new Map<string, string>();
   const pending = new Set(graph.keys());
@@ -100,7 +103,9 @@ function shortestPaths(start: Point) {
       }
     }
   }
-  return { distances, previous };
+  const result = { distances, previous };
+  shortestPathCache.set(source, result);
+  return result;
 }
 
 export function planRoute(start: RouteStart, stops: MappedStop[]) {
