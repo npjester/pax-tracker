@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { mappedBooths, orderStops, partitionStops } from '../src/booth-route.ts';
+import { mappedBooths, partitionStops, planRoute, queueEntrance } from '../src/booth-route.ts';
 
 const booth = (id, booth_number) => ({ id, booth_number, name: id, visited: false });
 
@@ -13,11 +13,36 @@ test('excludes missing, multi-location and duplicate booth numbers', () => {
   assert.deepEqual(unmapped.map((stop) => stop.id), ['two', 'duplicate', 'multi', 'unknown']);
 });
 
-test('orders mapped stops via the closer end of the aisle, including the starting booth', () => {
+test('starts at the chosen booth, then follows mapped aisles to the nearest stop', () => {
   const { mapped } = partitionStops([booth('left', '1851'), booth('middle', '2051'), booth('right', '2651')]);
   const start = mappedBooths.find((item) => item.number === '2051');
-  assert.deepEqual(orderStops(start, mapped).map((stop) => stop.booth.id), ['middle', 'left', 'right']);
-  const rightStart = mappedBooths.find((item) => item.number === '2851');
-  assert.deepEqual(orderStops(rightStart, mapped).map((stop) => stop.booth.id), ['right', 'middle', 'left']);
-  assert.deepEqual(orderStops(start, []), []);
+  const route = planRoute({ kind: 'booth', position: start }, mapped);
+  assert.deepEqual(route.stops.map((stop) => stop.booth.id), ['middle', 'left', 'right']);
+  assert.deepEqual(route.points[0], { x: start.x + start.width / 2, y: start.y + start.height });
+});
+
+test('routes from the queue to every mapped booth without crossing booth interiors', () => {
+  const obstacles = [
+    { number: 'Asmodee', x: 615, y: 483, width: 200, height: 357 },
+    { number: 'C6', x: 215, y: 339, width: 30, height: 30 },
+    { number: 'C7', x: 225, y: 746, width: 30, height: 30 },
+  ];
+  for (const target of mappedBooths) {
+    const stop = { booth: booth(target.number, target.number), position: target };
+    const route = planRoute({ kind: 'entrance', id: 'queue' }, [stop]);
+    assert.deepEqual(route.points[0], { x: queueEntrance.x, y: queueEntrance.y });
+    for (let i = 1; i < route.points.length; i++) {
+      const a = route.points[i - 1];
+      const b = route.points[i];
+      assert.ok(a.x === b.x || a.y === b.y, `Diagonal segment to ${target.number}`);
+      for (const rectangle of [...mappedBooths, ...obstacles]) {
+        const crosses = a.x === b.x
+          ? a.x > rectangle.x && a.x < rectangle.x + rectangle.width &&
+            Math.max(a.y, b.y) > rectangle.y && Math.min(a.y, b.y) < rectangle.y + rectangle.height
+          : a.y > rectangle.y && a.y < rectangle.y + rectangle.height &&
+            Math.max(a.x, b.x) > rectangle.x && Math.min(a.x, b.x) < rectangle.x + rectangle.width;
+        assert.equal(crosses, false, `Route to ${target.number} crosses booth ${rectangle.number}`);
+      }
+    }
+  }
 });

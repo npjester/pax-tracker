@@ -118,15 +118,18 @@ summary span { float: right; color: var(--muted); font: .8rem/1.8 var(--mono); }
 .map-caption { display: flex; justify-content: space-between; gap: 1rem; padding: 1rem; border-bottom: 1px solid var(--line); }
 .map-caption span, .route-list li span { color: var(--muted); font-size: .85rem; }
 .map-scroll { overflow-x: auto; }
-.map-scroll svg { display: block; min-width: 770px; width: 100%; }
+.map-scroll svg { display: block; min-width: 720px; width: 100%; }
 .map-aisle { stroke: #706876; stroke-width: 1; stroke-dasharray: 4 5; fill: none; }
 .map-route { stroke: var(--orange); stroke-width: 3; stroke-linejoin: round; fill: none; }
 .map-booth { fill: #45414f; stroke: #938b99; }
 .map-booth-active { fill: #754d3b; stroke: var(--orange); }
+.map-obstacle { fill: #302e38; stroke: var(--line); }
+.map-context { fill: var(--muted); font: 14px system-ui, sans-serif; }
 .map-number { fill: var(--paper); font: 700 10px var(--mono); }
 .map-marker { fill: var(--orange); }
 .map-marker-label { fill: var(--ink); font: 700 11px system-ui, sans-serif; }
 .map-start { fill: var(--orange); stroke: var(--ink); stroke-width: 2; }
+.map-entrance { fill: var(--muted); stroke: var(--ink); stroke-width: 2; }
 .map-aisle-label { fill: var(--muted); font: 10px var(--mono); }
 .route-list ol { margin: 0; padding-left: 1.6rem; }
 .route-list ol li { padding: .35rem 0 .35rem .25rem; }

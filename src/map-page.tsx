@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { mappedBooths, orderStops, partitionStops } from './booth-route';
+import { mappedBooths, partitionStops, planRoute, queueEntrance, type RouteStart } from './booth-route';
 import type { Booth } from './store';
 
 const officialMap = 'https://unplugged.paxsite.com/philly/en-us/info/maps.html';
@@ -8,20 +8,21 @@ type Scope = 'remaining' | 'all' | 'selected';
 export function MapPage({ booths }: { booths: Booth[] }) {
   const [scope, setScope] = useState<Scope>('remaining');
   const [selected, setSelected] = useState<string[]>([]);
-  const [startNumber, setStartNumber] = useState('');
-  const start = mappedBooths.find((item) => item.number === startNumber);
+  const [startValue, setStartValue] = useState('');
+  const startBooth = mappedBooths.find((item) => `booth:${item.number}` === startValue);
+  const start: RouteStart | null = startValue === 'entrance:queue' ? { kind: 'entrance', id: 'queue' } :
+    startBooth ? { kind: 'booth', position: startBooth } : null;
   const included = booths.filter((booth) => scope === 'all' || (scope === 'remaining' ? !booth.visited : selected.includes(booth.id)));
   const { mapped, unmapped } = partitionStops(included);
-  const stops = start ? orderStops(start, mapped) : [];
-  const line = start && stops.length
-    ? [`${start.x},170 ${start.x},205`, ...stops.map(({ position }) => `${position.x},205 ${position.x},170 ${position.x},205`)].join(' ')
-    : '';
+  const route = start && mapped.length ? planRoute(start, mapped) : null;
+  const stops = route?.stops ?? [];
+  const line = route?.points.map((point) => `${point.x},${point.y}`).join(' ') ?? '';
 
   return <section className="map-page" aria-labelledby="map-heading">
     <div className="map-intro">
       <div>
-        <h2 id="map-heading">Hall B aisle prototype</h2>
-        <p>Only ten booths along one aisle are mapped. This simplified diagram is not to scale; check the <a href={officialMap} target="_blank" rel="noreferrer">official 2026 expo map</a> before walking.</p>
+        <h2 id="map-heading">Hall B map</h2>
+        <p>{mappedBooths.length} booths in part of Hall B are mapped. Routes are approximate; check the <a href={officialMap} target="_blank" rel="noreferrer">official 2026 expo map</a> and follow on-site signs.</p>
       </div>
       <span className="tag">Partial map · prototype</span>
     </div>
@@ -33,14 +34,20 @@ export function MapPage({ booths }: { booths: Booth[] }) {
           <option value="selected">Selected only</option>
         </select>
       </label>
-      <label>Start at a booth
-        <select value={startNumber} onChange={(event) => setStartNumber(event.target.value)}>
-          <option value="">Choose a starting booth</option>
-          {mappedBooths.map((position) => <option value={position.number} key={position.number}>{position.number} · {position.name}</option>)}
+      <label>Starting location
+        <select value={startValue} onChange={(event) => setStartValue(event.target.value)}>
+          <option value="">Choose a starting location</option>
+          <optgroup label="Entrance">
+            <option value="entrance:queue">Queue entrance near booth 1821 (approximate)</option>
+          </optgroup>
+          <optgroup label="Mapped booths">
+            {[...mappedBooths].sort((a, b) => a.number.localeCompare(b.number)).map((position) =>
+              <option value={`booth:${position.number}`} key={position.number}>{position.number} · {position.name}</option>)}
+          </optgroup>
         </select>
       </label>
     </div>
-    <p>The Queue entrance is near booth 1821, outside the mapped aisle. Entrance starts will be available once the connecting aisles are mapped.</p>
+    <p>The Queue starting point is approximate. Routes follow the mapped aisles, not live location or crowd conditions.</p>
     {scope === 'selected' && (booths.length ? <fieldset className="map-selection">
       <legend>Select checklist booths</legend>
       {booths.map((booth) => <label key={booth.id}>
@@ -51,31 +58,37 @@ export function MapPage({ booths }: { booths: Booth[] }) {
     </fieldset> : <p>Add booths to your checklist before selecting stops.</p>)}
     <div className="map-layout">
       <div className="map-surface">
-        <div className="map-caption"><strong>Hall B</strong><span>One aisle shown</span></div>
+        <div className="map-caption"><strong>Hall B</strong><span>Partial map · scroll to explore</span></div>
         <div className="map-scroll" tabIndex={0} aria-label="Scroll the partial Hall B map horizontally">
-          <svg viewBox="0 0 770 260" role="img" aria-labelledby="aisle-title aisle-description">
-            <title id="aisle-title">Partial Hall B aisle</title>
-            <desc id="aisle-description">Ten mapped booths in their relative order along one aisle. The route and excluded stops are also listed below.</desc>
-            <path d="M 25 205 H 745" className="map-aisle" />
+          <svg viewBox="105 65 940 835" role="img" aria-labelledby="aisle-title aisle-description">
+            <title id="aisle-title">Partial Hall B map</title>
+            <desc id="aisle-description">Mapped booths and approximate aisles near the Queue entrance. The route and excluded stops are also listed below.</desc>
+            {[96, 195, 300, 450, 610, 710, 865].map((y) => <path key={y} d={`M 130 ${y} H ${y <= 450 ? 1030 : 590}`} className="map-aisle" />)}
+            <path d="M 262 96 V 865 H 130" className="map-aisle" />
+            <rect x="615" y="483" width="200" height="357" rx="3" className="map-obstacle" />
+            <text x="715" y="650" textAnchor="middle" className="map-context">Unmapped</text>
             {line && <polyline points={line} className="map-route" />}
             {mappedBooths.map((position) => {
               const stopIndex = stops.findIndex((stop) => stop.position.number === position.number);
+              const x = position.x + position.width / 2;
+              const y = position.y + position.height / 2;
               return <g key={position.number}>
-                <rect x={position.x - 19} y="85" width="38" height="85" rx="3" className={stopIndex >= 0 ? 'map-booth map-booth-active' : 'map-booth'} />
-                <text x={position.x} y="132" textAnchor="middle" className="map-number">{position.number}</text>
-                {stopIndex >= 0 && <><circle cx={position.x} cy="65" r="13" className="map-marker" /><text x={position.x} y="69" textAnchor="middle" className="map-marker-label">{stopIndex + 1}</text></>}
-                {start?.number === position.number && <circle cx={position.x} cy="170" r="5" className="map-start" />}
+                <rect x={position.x} y={position.y} width={position.width} height={position.height} rx="3" className={stopIndex >= 0 ? 'map-booth map-booth-active' : 'map-booth'} />
+                <text x={x} y={y + 3} textAnchor="middle" className="map-number" textLength={Math.min(position.width - 4, 25)} lengthAdjust="spacingAndGlyphs">{position.number}</text>
+                {stopIndex >= 0 && <><circle cx={position.x + position.width - 3} cy={position.y + 3} r="11" className="map-marker" /><text x={position.x + position.width - 3} y={position.y + 7} textAnchor="middle" className="map-marker-label">{stopIndex + 1}</text></>}
+                {startBooth?.number === position.number && <circle cx={x} cy={position.access === 'top' ? position.y : position.y + position.height} r="6" className="map-start" />}
               </g>;
             })}
-            <text x="25" y="239" className="map-aisle-label">AISLE</text>
+            <circle cx={queueEntrance.x} cy={queueEntrance.y} r="6" className={start?.kind === 'entrance' ? 'map-start' : 'map-entrance'} />
+            <text x="140" y="884" className="map-aisle-label">QUEUE ENTRANCE</text>
           </svg>
         </div>
       </div>
       <div className="route-list">
         <h3>Route stops</h3>
         {!included.length ? <p>{scope === 'selected' ? 'Select booths from your checklist to plan a route.' : 'No checklist booths are included in this route.'}</p> :
-          !mapped.length ? <p>None of the included booths are in the mapped aisle yet.</p> :
-            !start ? <p>Choose a starting booth to see the route.</p> : <ol>
+          !mapped.length ? <p>None of the included booths are in the mapped section yet.</p> :
+            !start ? <p>Choose a starting location to see the route.</p> : <ol>
               {stops.map(({ booth, position }) => <li key={booth.id}><strong>{booth.name}</strong><span>Booth {position.number}{booth.visited ? ' · Visited' : ''}</span></li>)}
             </ol>}
         {unmapped.length > 0 && <div className="unmapped">
