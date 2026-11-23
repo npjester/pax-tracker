@@ -24,4 +24,12 @@ test('local preview persists checklist and collection separately and reports mis
   preview.removeCollection();
   assert.equal(preview.getCollection(), null);
   assert.equal(preview.listBooths().length, 1);
+  const manual = preview.addGamePlan('buy', 'Existing game');
+  preview.addGamePlan('try', 'Existing game');
+  assert.equal(preview.importGamesToBuy(['existing game', 'New game', 'New game']), 1);
+  assert.equal(preview.importGamesToBuy(['New game']), 0);
+  assert.equal(preview.listGamePlans().length, 3);
+  assert.equal(preview.checkGamePlan(manual.id, true).checked, true);
+  preview.removeGamePlan(manual.id);
+  assert.equal(preview.listGamePlans().length, 2);
 });

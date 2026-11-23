@@ -9,10 +9,18 @@ test('imports quoted BGG titles, merges copies, and drops irrelevant columns and
     + 'Ignored,456,0,0,0,N/A,Irrelevant,Drop';
   assert.deepEqual(parseCollection(csv), [{
     id: '123', title: 'Game, "Deluxe"', publishers: ['Fancy Games', 'Second Publisher'],
-    owned: true, wanted: true, rating: 8.5,
+    owned: true, wanted: true, wantToBuy: true, rating: 8.5,
   }]);
   assert.throws(() => parseCollection('objectid,objectname,own\n123,"unfinished,1'), /malformed/);
   assert.throws(() => parseCollection('game,owned\nUnknown,1'), /original BoardGameGeek/);
+});
+
+test('preserves the BGG want-to-buy flag separately from other wants', () => {
+  const games = parseCollection('objectid,objectname,own,wishlist,wanttobuy,wanttoplay\n1,Wishlist,0,1,0,0\n2,Buy,0,0,1,0\n2,Buy,1,0,0,0');
+  assert.equal(games[0].wanted, true);
+  assert.equal(games[0].wantToBuy, false);
+  assert.equal(games[1].wantToBuy, true);
+  assert.equal(parseCollection('objectid,objectname,own\n3,Older export,1')[0].wantToBuy, undefined);
 });
 
 test('reads publishers from the version_publishers column of BGG exports', () => {

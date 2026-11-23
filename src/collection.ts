@@ -2,7 +2,7 @@ import Papa from 'papaparse';
 import { exhibitorId, type Exhibitor } from './expo.ts';
 
 export type CollectionGame = {
-  id: string; title: string; publishers: string[]; owned: boolean; wanted: boolean; rating: number | null;
+  id: string; title: string; publishers: string[]; owned: boolean; wanted: boolean; wantToBuy?: boolean; rating: number | null;
 };
 export type ExpoGame = { exhibitorId: string; title: string };
 export const collectionFileLimit = 5 * 1024 * 1024;
@@ -59,6 +59,7 @@ export function parseCollection(csv: string): CollectionGame[] {
     const previous = games.get(id);
     games.set(id, {
       id, title, owned: owned || !!previous?.owned, wanted: wanted || !!previous?.wanted,
+      ...(fields.includes('wanttobuy') ? { wantToBuy: marked(row.wanttobuy) || !!previous?.wantToBuy } : {}),
       rating: rating !== null || previous?.rating != null ? Math.max(rating ?? 0, previous?.rating ?? 0) : null,
       publishers: [...new Set([...(previous?.publishers ?? []), ...publishers])],
     });

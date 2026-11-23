@@ -1,9 +1,10 @@
 import { shortlist } from './shortlist.ts';
-import type { Booth, Game } from './store.ts';
+import type { Booth, Game, GamePlan, GamePlanKind } from './store.ts';
 import type { CollectionGame } from './collection.ts';
 
 const boothKey = 'pax-tracker-preview-booths';
 const collectionKey = 'pax-tracker-preview-collection';
+const gamePlansKey = 'pax-tracker-preview-game-plans';
 type BoothFields = Pick<Booth, 'name' | 'booth_number' | 'priority'> & Partial<Pick<Booth, 'id'>>;
 type BoothPatch = Partial<Omit<Booth, 'id' | 'games'>>;
 
@@ -76,4 +77,57 @@ export function saveCollection(games: CollectionGame[]) {
 
 export function removeCollection() {
   localStorage.removeItem(collectionKey);
+}
+
+export function listGamePlans(): GamePlan[] {
+  const saved = localStorage.getItem(gamePlansKey);
+  return saved === null ? [] : JSON.parse(saved);
+}
+
+function saveGamePlans(games: GamePlan[]) {
+  localStorage.setItem(gamePlansKey, JSON.stringify(games));
+}
+
+export function addGamePlan(kind: GamePlanKind, title: string): GamePlan {
+  const games = listGamePlans();
+  const name = title.trim();
+  if (!name || name.length > 300) throw new Error('Enter a game title of up to 300 characters.');
+  if (games.some((game) => game.kind === kind && game.title.trim().toLowerCase() === name.toLowerCase())) {
+    throw new Error('This game is already on this list.');
+  }
+  const game = { id: crypto.randomUUID(), kind, title: name, checked: false };
+  games.push(game);
+  saveGamePlans(games);
+  return game;
+}
+
+export function checkGamePlan(id: string, checked: boolean): GamePlan {
+  const games = listGamePlans();
+  const game = games.find((item) => item.id === id);
+  if (!game) throw new Error('This game no longer exists.');
+  game.checked = checked;
+  saveGamePlans(games);
+  return game;
+}
+
+export function removeGamePlan(id: string) {
+  const games = listGamePlans();
+  if (!games.some((game) => game.id === id)) throw new Error('This game no longer exists.');
+  saveGamePlans(games.filter((game) => game.id !== id));
+}
+
+export function importGamesToBuy(titles: string[]) {
+  const games = listGamePlans();
+  const existing = new Set(games.filter((game) => game.kind === 'buy').map((game) => game.title.trim().toLowerCase()));
+  let added = 0;
+  for (const title of titles) {
+    const name = title.trim();
+    if (!name || name.length > 300) throw new Error('Enter a game title of up to 300 characters.');
+    if (existing.has(name.toLowerCase())) continue;
+    games.push({ id: crypto.randomUUID(), kind: 'buy', title: name, checked: false });
+    existing.add(name.toLowerCase());
+    added++;
+  }
+  saveGamePlans(games);
+  return added;
 }

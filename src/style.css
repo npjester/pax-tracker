@@ -109,6 +109,45 @@ summary span { float: right; color: var(--muted); font: .8rem/1.8 var(--mono); }
 .expo-results li div { min-width: 0; }
 .expo-results li strong { overflow-wrap: anywhere; }
 .expo-results li p { font-size: .88rem; }
+.map-page, .route-list { display: grid; align-content: start; gap: 1rem; }
+.map-intro { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .75rem 1rem; align-items: start; }
+.map-intro div { display: grid; gap: .5rem; max-width: 70ch; }
+.map-controls { display: grid; gap: .75rem; }
+.map-location-choices { display: grid; gap: .75rem; max-width: 42rem; }
+.map-selection { display: flex; flex-wrap: wrap; gap: .4rem 1.25rem; border: 1px solid var(--line); border-radius: .65rem; padding: .8rem 1rem; }
+.map-selection label { display: flex; align-items: center; gap: .5rem; min-height: 44px; }
+.map-layout { display: grid; gap: 1rem; }
+.map-surface { min-width: 0; border: 1px solid var(--line); border-radius: .75rem; background: var(--panel); overflow: hidden; }
+.map-caption { display: flex; justify-content: space-between; gap: 1rem; padding: 1rem; border-bottom: 1px solid var(--line); }
+.map-caption div { display: grid; align-content: center; gap: .25rem; }
+.map-caption span, .route-list li span { color: var(--muted); font-size: .85rem; }
+.map-zoom { min-height: 44px; padding: .35rem .75rem; }
+.map-scroll { overflow-x: auto; }
+.map-scroll svg { display: block; min-width: 720px; width: 100%; }
+.map-scroll-fit svg { min-width: 0; }
+.map-aisle { stroke: #706876; stroke-width: 1; stroke-dasharray: 4 5; fill: none; }
+.map-route { stroke: var(--orange); stroke-width: 3; stroke-linejoin: round; fill: none; }
+.map-booth { fill: #45414f; stroke: #938b99; }
+.map-booth-active { fill: #754d3b; stroke: var(--orange); }
+.map-obstacle { fill: #302e38; stroke: var(--line); }
+.map-context { fill: var(--muted); font: 14px system-ui, sans-serif; }
+.map-number { fill: var(--paper); font: 700 10px var(--mono); }
+.map-marker { fill: var(--orange); }
+.map-marker-label { fill: var(--ink); font: 700 11px system-ui, sans-serif; }
+.map-start { fill: var(--orange); stroke: var(--ink); stroke-width: 2; }
+.map-entrance { fill: var(--muted); stroke: var(--ink); stroke-width: 2; }
+.map-aisle-label { fill: var(--muted); font: 10px var(--mono); }
+.route-list ol { margin: 0; padding-left: 1.6rem; }
+.route-list ol li { padding: .35rem 0 .35rem .25rem; }
+.route-list ol li span { display: block; }
+.unmapped { display: grid; gap: .5rem; border-top: 1px solid var(--line); padding-top: 1rem; }
+.unmapped ul { margin: 0; padding-left: 1.25rem; color: var(--muted); }
+.games-page, .game-plan, .game-plan-grid { display: grid; align-content: start; gap: .85rem; }
+.game-import { justify-self: start; }
+.game-plan-list { margin: 0; padding: 0; list-style: none; }
+.game-plan-list li { display: flex; justify-content: space-between; gap: .5rem; border-top: 1px solid var(--line); }
+.game-plan-list label { display: flex; align-items: center; gap: .55rem; min-width: 0; min-height: 44px; }
+.game-plan-list input:checked + span { text-decoration: line-through; color: var(--muted); }
 .sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
 @media (min-width: 640px) {
@@ -116,8 +155,11 @@ summary span { float: right; color: var(--muted); font: .8rem/1.8 var(--mono); }
   .fields { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
   .add-form { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) auto; align-items: end; }
   .booth-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .map-controls { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (min-width: 810px) {
   .welcome { grid-template-columns: minmax(0, 1.25fr) minmax(0, .85fr); gap: clamp(3rem, 8vw, 7rem); }
   .stats div { padding: .85rem 1.15rem; }
+  .map-layout { grid-template-columns: minmax(0, 2fr) minmax(220px, 1fr); align-items: start; }
+  .game-plan-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
