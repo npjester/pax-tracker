@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { aisles, boothNumbers, mappedBooths, partitionStops, planRoute, queueEntrance } from '../src/booth-route.ts';
+import { aisles, boothNumbers, exhibitorNames, mappedBooths, partitionStops, planRoute, queueEntrance } from '../src/booth-route.ts';
 
 const booth = (id, booth_number) => ({ id, booth_number, name: id, visited: false });
 
@@ -19,6 +19,20 @@ test('matches booth numbers without treating rooms and other locations as booth 
   assert.deepEqual(boothNumbers('Room 2026, GH-4301'), []);
   const { mapped } = partitionStops([booth('asmodee', '2626, Room 201B, Gaming Hall Block 32')]);
   assert.equal(mapped[0].position.number, '2626');
+});
+
+test('finds exhibitors for a mapped booth using the directory, checklist, or known map label', () => {
+  const unknown = mappedBooths.find((item) => item.number === '4359');
+  const known = mappedBooths.find((item) => item.number === '1821');
+  const directory = [
+    { name: 'Official A', booth_number: '4359/1821' },
+    { name: 'Official B', booth_number: 'Booth 4359' },
+    { name: 'Not a booth', booth_number: 'Room 4359' },
+  ];
+  assert.deepEqual(exhibitorNames(unknown, directory, [booth('Saved', '4359')]), ['Official A', 'Official B']);
+  assert.deepEqual(exhibitorNames(unknown, [], [booth('Saved', '4359')]), ['Saved']);
+  assert.deepEqual(exhibitorNames(unknown, [], []), []);
+  assert.deepEqual(exhibitorNames(known, [], []), ['Renegade Game Studios']);
 });
 
 test('requires a valid explicit location for a multi-booth exhibitor', () => {

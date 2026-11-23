@@ -1,4 +1,5 @@
 import type { Booth } from './store.ts';
+import type { Exhibitor } from './expo.ts';
 import { aisles, mappedBooths, queueEntrance, type MapPosition } from './expo-map.ts';
 
 export { aisles, mappedBooths, queueEntrance };
@@ -19,6 +20,17 @@ export const boothPoint = (position: MapPosition): Point => sideAccess(position)
 export function boothNumbers(value: string) {
   return [...new Set(value.split(/[,/;]/).map((part) => part.trim().replace(/^booth\s+/i, ''))
     .filter((part) => /^\d{4}$/.test(part)))];
+}
+
+export function exhibitorNames(position: MapPosition, directory: Exhibitor[], booths: Booth[]) {
+  const names = (entries: Pick<Exhibitor, 'name' | 'booth_number'>[]) => [...new Set(entries
+    .filter((entry) => boothNumbers(entry.booth_number).includes(position.number))
+    .map((entry) => entry.name))];
+  const official = names(directory);
+  if (official.length) return official;
+  const saved = names(booths);
+  if (saved.length) return saved;
+  return position.name === `Booth ${position.number}` ? [] : [position.name];
 }
 
 export function partitionStops(booths: Booth[], choices: Record<string, string> = {}) {
