@@ -15,6 +15,13 @@ test('imports quoted BGG titles, merges copies, and drops irrelevant columns and
   assert.throws(() => parseCollection('game,owned\nUnknown,1'), /original BoardGameGeek/);
 });
 
+test('reads publishers from the version_publishers column of BGG exports', () => {
+  const csv = 'objectname,objectid,own,version_publishers\n'
+    + 'A,1,1,"Rock, Stone &amp; Dice Games"\nB,2,1,Button Shy\nC,3,1,(Self-Published)\nD,4,1,';
+  assert.deepEqual(parseCollection(csv).map((game) => game.publishers),
+    [['Rock, Stone & Dice Games'], ['Button Shy'], [], []]);
+});
+
 test('matches BGG publishers to complete and qualified exhibitor names', () => {
   assert.equal(publisherMatches('Devir', 'Devir Americas, LLC'), true);
   assert.equal(publisherMatches('Dire Wolf Games', 'Dire Wolf Digital'), true);
