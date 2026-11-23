@@ -1,11 +1,11 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { aisles, boothNumbers, boothPoint, exhibitorNames, mappedBooths, partitionStops, planRoute, queueEntrance, type MapPosition, type RouteStart } from './booth-route';
 import { fetchDirectory, type Exhibitor } from './expo';
+import { initialMapState, readMapState, saveMapState, type Scope } from './map-state';
 import type { Booth } from './store';
 
 const officialMap = 'https://unplugged.paxsite.com/philly/en-us/info/maps.html';
 const venueMap = 'https://unplugged.paxsite.com/content/dam/sitebuilder/rna/pax/unplugged/2026/docs/Convention-Center-Map_PAX-Unplugged-2026.pdf.coredownload.951710803.pdf';
-type Scope = 'remaining' | 'all' | 'selected';
 const additionalExhibits = [
   ['Alexandria RPG Library', '108B'], ['Amoirais', '105'], ['Arkham Horror', '201B'],
   ['Avantris', '110A'], ['Baldman Games', '103'], ['Chaosium', '109A'],
@@ -16,20 +16,41 @@ const additionalExhibits = [
   ['Suspense Studio', '117'], ['Winding Path Initiative', '120A'],
 ];
 
-export function MapPage({ booths }: { booths: Booth[] }) {
-  const [scope, setScope] = useState<Scope>('remaining');
-  const [selected, setSelected] = useState<string[]>([]);
-  const [startValue, setStartValue] = useState('');
-  const [choices, setChoices] = useState<Record<string, string>>({});
+export function MapPage({ booths, ownerId }: { booths: Booth[]; ownerId: string }) {
+  const [restored] = useState(() => {
+    try {
+      return { state: readMapState(localStorage, ownerId), error: false };
+    } catch {
+      return { state: initialMapState, error: true };
+    }
+  });
+  const [scope, setScope] = useState<Scope>(restored.state.scope);
+  const [selected, setSelected] = useState<string[]>(restored.state.selected);
+  const [startValue, setStartValue] = useState(restored.state.startValue);
+  const [choices, setChoices] = useState<Record<string, string>>(restored.state.choices);
   const [fitMap, setFitMap] = useState(false);
   const [zoomed, setZoomed] = useState(false);
   const [selectedNumber, setSelectedNumber] = useState<string | null>(null);
-  const [activeStopId, setActiveStopId] = useState<string | null>(null);
+  const [activeStopId, setActiveStopId] = useState<string | null>(restored.state.activeStopId);
+  const [storageError, setStorageError] = useState(restored.error);
+  const [restoreFailed, setRestoreFailed] = useState(restored.error);
+  const [startSearch, setStartSearch] = useState('');
+  const [boothSearch, setBoothSearch] = useState('');
   const [focusRequest, setFocusRequest] = useState<{ number: string } | null>(null);
   const [directory, setDirectory] = useState<Exhibitor[]>([]);
   const [directoryStatus, setDirectoryStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [directoryAttempt, setDirectoryAttempt] = useState(0);
   const boothElements = useRef(new Map<string, SVGGElement>());
+
+  useEffect(() => {
+    if (restoreFailed) return;
+    try {
+      saveMapState(localStorage, ownerId, { scope, selected, startValue, choices, activeStopId });
+      setStorageError(false);
+    } catch {
+      setStorageError(true);
+    }
+  }, [ownerId, scope, selected, startValue, choices, activeStopId, restoreFailed]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -63,6 +84,20 @@ export function MapPage({ booths }: { booths: Booth[] }) {
   const line = route?.points.map((point) => `${point.x},${point.y}`).join(' ') ?? '';
   const selectedPosition = mappedBooths.find((position) => position.number === selectedNumber);
   const selectedNames = selectedPosition ? exhibitorNames(selectedPosition, directory, booths) : [];
+  const boothNames = useMemo(() => new Map(mappedBooths.map((position) =>
+    [position.number, exhibitorNames(position, directory, booths)])), [directory, booths]);
+  const sortedBooths = useMemo(() => [...mappedBooths].sort((a, b) => a.number.localeCompare(b.number)), []);
+  function matchingBooths(query: string) {
+    const search = query.trim().toLowerCase();
+    return sortedBooths.filter((position) =>
+      `${position.number} ${position.name} ${(boothNames.get(position.number) ?? []).join(' ')}`.toLowerCase().includes(search));
+  }
+  function boothLabel(position: MapPosition) {
+    const names = boothNames.get(position.number) ?? [];
+    return names.length ? `${position.number} · ${names.join(' / ')}` : `Booth ${position.number}`;
+  }
+  const startingBooths = matchingBooths(startSearch);
+  const foundBooths = boothSearch.trim() ? matchingBooths(boothSearch) : [];
   const activeIndex = Math.max(0, stops.findIndex((stop) => stop.booth.id === activeStopId));
   const activeStop = stops[activeIndex];
 
@@ -79,6 +114,13 @@ export function MapPage({ booths }: { booths: Booth[] }) {
     setSelectedNumber(stop.position.number);
     setFitMap(false);
     setFocusRequest({ number: stop.position.number });
+  }
+
+  function showBooth(position: MapPosition) {
+    selectBooth(position);
+    setFitMap(false);
+    setZoomed(true);
+    setFocusRequest({ number: position.number });
   }
 
   function moveBoothFocus(position: MapPosition, key: string) {
@@ -110,6 +152,24 @@ export function MapPage({ booths }: { booths: Booth[] }) {
       </div>
       <span className="tag">Partial map · prototype</span>
     </div>
+    {storageError && <div className="map-storage-error" role="alert">
+      <p className="error">Map settings could not be {restoreFailed ? 'restored' : 'saved'} on this device. Route progress may reset.</p>
+      <button type="button" onClick={() => {
+        try {
+          if (restoreFailed) localStorage.removeItem(`pax-tracker-map:${ownerId}`);
+          else saveMapState(localStorage, ownerId, { scope, selected, startValue, choices, activeStopId });
+          setRestoreFailed(false);
+          setStorageError(false);
+        } catch {
+          setStorageError(true);
+        }
+      }}>{restoreFailed ? 'Discard saved map settings' : 'Retry saving'}</button>
+      <p>Check browser storage settings if the problem continues.</p>
+    </div>}
+    {!booths.length && <div className="map-setup">
+      <p>Add booths to your checklist, then choose a starting location to plan a route.</p>
+      <div className="actions"><a className="button" href="#update">Find or add booths</a><a className="button" href="#collection">Import from BGG</a></div>
+    </div>}
     <div className="map-controls">
       <label>Include in route
         <select value={scope} onChange={(event) => setScope(event.target.value as Scope)}>
@@ -118,6 +178,10 @@ export function MapPage({ booths }: { booths: Booth[] }) {
           <option value="selected">Selected only</option>
         </select>
       </label>
+      <div className="map-start-controls">
+      <label>Find a starting booth
+        <input type="search" value={startSearch} onChange={(event) => setStartSearch(event.target.value)} placeholder="Booth number or exhibitor" />
+      </label>
       <label>Starting location
         <select value={startValue} onChange={(event) => setStartValue(event.target.value)}>
           <option value="">Choose a starting location</option>
@@ -125,11 +189,13 @@ export function MapPage({ booths }: { booths: Booth[] }) {
             <option value="entrance:queue">Queue entrance near booth 1821 (approximate)</option>
           </optgroup>
           <optgroup label="Mapped booths">
-            {[...mappedBooths].sort((a, b) => a.number.localeCompare(b.number)).map((position) =>
-              <option value={`booth:${position.number}`} key={position.number}>{position.name === `Booth ${position.number}` ? position.name : `${position.number} · ${position.name}`}</option>)}
+            {sortedBooths.filter((position) => startingBooths.includes(position) || `booth:${position.number}` === startValue).map((position) =>
+              <option value={`booth:${position.number}`} key={position.number}>{boothLabel(position)}</option>)}
           </optgroup>
         </select>
       </label>
+      {startSearch.trim() && startingBooths.length === 0 && <p>No mapped booths match that search.</p>}
+      </div>
     </div>
     <p>The Queue starting point is approximate. Routes follow the mapped aisles, not live location or crowd conditions.</p>
     {scope === 'selected' && (booths.length ? <fieldset className="map-selection">
@@ -157,13 +223,22 @@ export function MapPage({ booths }: { booths: Booth[] }) {
     <div className="map-layout">
       <div className="map-surface">
         <div className="map-caption"><div><strong>Halls A &amp; B</strong><span>{fitMap ? 'Full map overview' : 'Swipe or scroll to explore'}</span></div><div className="actions"><button type="button" className="map-zoom" onClick={() => { setZoomed(fitMap || !zoomed); setFitMap(false); }}>{!fitMap && zoomed ? 'Zoom out' : 'Zoom in'}</button><button type="button" className="map-zoom" onClick={() => setFitMap(!fitMap)}>{fitMap ? 'Show detail' : 'Fit map'}</button></div></div>
+        <div className="map-finder">
+          <label>Find a booth on the map
+            <input type="search" value={boothSearch} onChange={(event) => setBoothSearch(event.target.value)} placeholder="Booth number or exhibitor" />
+          </label>
+          {boothSearch.trim() && (foundBooths.length ? <>
+            <p>{foundBooths.length > 12 ? `Showing 12 of ${foundBooths.length} matches. Refine your search to see others.` : `${foundBooths.length} ${foundBooths.length === 1 ? 'match' : 'matches'}. Select one to find it on the map.`}</p>
+            <ul>{foundBooths.slice(0, 12).map((position) => <li key={position.number}><button type="button" onClick={() => showBooth(position)}>{boothLabel(position)}</button></li>)}</ul>
+          </> : <p>No mapped booths match that search.</p>)}
+        </div>
         <div className="map-overlay">
         <div className="map-inspection" aria-live="polite">
           {selectedPosition ? <>
             <div><span className="map-inspection-label">Booth {selectedPosition.number}</span>
               <strong>{selectedNames.length ? selectedNames.join(' / ') : directoryStatus === 'loading' ? 'Loading exhibitor…' : directoryStatus === 'error' ? 'Exhibitor unavailable' : 'Exhibitor not listed'}</strong></div>
             {directoryStatus === 'error' && <p>Couldn’t load the official directory. <button type="button" className="text-button" onClick={() => setDirectoryAttempt((n) => n + 1)}>Retry</button></p>}
-          </> : <p>Tap a booth to see its exhibitor. Use arrow keys to move between booths.</p>}
+          </> : <p>Tap a booth to see its exhibitor, or search above. Use arrow keys to move between booths.</p>}
         </div>
         {activeStop && <div className="route-navigation" aria-label="Route navigation">
           <div aria-live="polite"><span>Stop {activeIndex + 1} of {stops.length}</span><strong>{activeStop.booth.name} · {activeStop.position.number}</strong></div>
@@ -191,7 +266,7 @@ export function MapPage({ booths }: { booths: Booth[] }) {
               const y = position.y + position.height / 2;
               const entry = boothPoint(position);
               const large = position.width >= 70 && position.height >= 70;
-              const names = large ? exhibitorNames(position, directory, booths) : [];
+              const names = large ? boothNames.get(position.number) ?? [] : [];
               const label = position.name !== `Booth ${position.number}` ? position.name :
                 names.length ? `${names[0]}${names.length > 1 ? ` + ${names.length - 1} more` : ''}` :
                   directoryStatus === 'loading' ? 'Loading…' : directoryStatus === 'error' ? 'Exhibitor unavailable' : 'Exhibitor not listed';
@@ -199,7 +274,7 @@ export function MapPage({ booths }: { booths: Booth[] }) {
                 if (element) boothElements.current.set(position.number, element);
                 else boothElements.current.delete(position.number);
               }} role="button" tabIndex={selectedNumber === position.number || (!selectedNumber && position === mappedBooths[0]) ? 0 : -1}
-                aria-label={`Booth ${position.number}`} aria-pressed={selectedNumber === position.number}
+                aria-label={boothLabel(position)} aria-pressed={selectedNumber === position.number}
                 className="map-booth-button" onClick={() => selectBooth(position)}
                 onKeyDown={(event) => {
                   if (event.key === 'Enter' || event.key === ' ') {
@@ -222,7 +297,7 @@ export function MapPage({ booths }: { booths: Booth[] }) {
       </div>
       <div className="route-list">
         <h3>Route stops</h3>
-        {!included.length ? <p>{scope === 'selected' ? 'Select booths from your checklist to plan a route.' : 'No checklist booths are included in this route.'}</p> :
+        {!included.length ? <p>{scope === 'selected' ? 'Select booths from your checklist above to plan a route.' : booths.length ? 'No checklist booths are included. Change the route filter above or add more booths.' : 'Add booths to your checklist to build a route.'}</p> :
           !mapped.length ? <p>{multipleLocations.some(({ booth, numbers }) => !choices[booth.id] && mappedBooths.some((position) => numbers.includes(position.number))) ?
             'Choose a mapped location above to include it in the route.' : 'None of the included booths are in the mapped section yet.'}</p> :
             !start ? <p>Choose a starting location to see the route.</p> : <ol>

@@ -260,7 +260,7 @@ export function Tracker({ ownerId, email }: { ownerId: string; email?: string })
     {booths && page === 'collection' &&
       <CollectionPanel ownerId={ownerId} booths={list} busy={busy} onImport={importExhibitor} />
     }
-    {booths && page === 'map' && <MapPage booths={list} />}
+    {booths && page === 'map' && <MapPage booths={list} ownerId={ownerId} />}
     {booths && page === 'games' && <GamesPage ownerId={ownerId} />}
     {booths && page === 'update' && <>
       <ExpoLookup booths={list} busy={busy} onImport={importExhibitor} onUpdate={(booth, entry) => run(() => store.updateBooth(booth.id, { booth_number: entry.booth_number }),
