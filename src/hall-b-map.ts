@@ -83,3 +83,18 @@ export const mappedBooths: MapPosition[] = rows.map(([number, name, x, y, width,
 }));
 
 export const queueEntrance = { id: 'queue', name: 'Queue entrance near booth 1821', x: 130, y: 865 };
+
+// Each line stops at the last verified open cross-aisle; some gaps end at a booth or pillar.
+export const aisles = [
+  ...[96, 195, 300, 450].map((y) => ({ x1: 130, y1: y, x2: 1030, y2: y })),
+  ...[610, 710].map((y) => ({ x1: 130, y1: y, x2: 590, y2: y })),
+  { x1: 130, y1: 865, x2: 1030, y2: 865 },
+  { x1: 522, y1: 990, x2: 1030, y2: 990 },
+  { x1: 262, y1: 96, x2: 262, y2: 865 },
+  { x1: 333, y1: 96, x2: 333, y2: 450 },
+  { x1: 413, y1: 96, x2: 413, y2: 865 },
+  { x1: 678, y1: 96, x2: 678, y2: 450 },
+  { x1: 758, y1: 96, x2: 758, y2: 450 },
+  { x1: 884, y1: 96, x2: 884, y2: 300 },
+  { x1: 522, y1: 865, x2: 522, y2: 990 },
+];

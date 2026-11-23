@@ -1,13 +1,12 @@
 import type { Booth } from './store.ts';
-import { mappedBooths, queueEntrance, type MapPosition } from './hall-b-map.ts';
+import { aisles, mappedBooths, queueEntrance, type MapPosition } from './hall-b-map.ts';
 
-export { mappedBooths, queueEntrance };
+export { aisles, mappedBooths, queueEntrance };
 export type { MapPosition };
 export type Point = { x: number; y: number };
 export type MappedStop = { booth: Booth; position: MapPosition };
 export type RouteStart = { kind: 'booth'; position: MapPosition } | { kind: 'entrance'; id: 'queue' };
 
-const spineX = 262;
 const pointKey = (point: Point) => `${point.x},${point.y}`;
 const center = (position: MapPosition) => position.x + position.width / 2;
 const aislePoint = (position: MapPosition): Point => ({ x: center(position), y: position.aisle });
@@ -39,14 +38,16 @@ export function partitionStops(booths: Booth[], choices: Record<string, string> 
 }
 
 function buildGraph() {
-  const lanes = new Map<number, Set<number>>();
-  for (const position of mappedBooths) {
-    const xs = lanes.get(position.aisle) ?? new Set<number>([position.aisle === 990 ? 522 : spineX]);
-    xs.add(center(position));
-    lanes.set(position.aisle, xs);
+  const onSegment = (point: Point, segment: typeof aisles[number]) =>
+    point.x >= Math.min(segment.x1, segment.x2) && point.x <= Math.max(segment.x1, segment.x2) &&
+    point.y >= Math.min(segment.y1, segment.y2) && point.y <= Math.max(segment.y1, segment.y2) &&
+    (segment.x1 === segment.x2 ? point.x === segment.x1 : point.y === segment.y1);
+  const accessPoints = [...mappedBooths.map(aislePoint), queueEntrance];
+  for (const point of accessPoints) {
+    if (!aisles.some((segment) => onSegment(point, segment))) {
+      throw new Error(`No mapped aisle at ${pointKey(point)}.`);
+    }
   }
-  lanes.get(queueEntrance.y)!.add(queueEntrance.x);
-  lanes.get(queueEntrance.y)!.add(522);
   const edges = new Map<string, { key: string; distance: number }[]>();
   function connect(a: Point, b: Point) {
     const ak = pointKey(a);
@@ -55,13 +56,23 @@ function buildGraph() {
     edges.set(ak, [...(edges.get(ak) ?? []), { key: bk, distance }]);
     edges.set(bk, [...(edges.get(bk) ?? []), { key: ak, distance }]);
   }
-  for (const [y, positions] of lanes) {
-    const xs = [...positions].sort((a, b) => a - b);
-    for (let i = 1; i < xs.length; i++) connect({ x: xs[i - 1], y }, { x: xs[i], y });
+  for (const segment of aisles) {
+    const points = new Map<string, Point>();
+    const add = (point: Point) => {
+      if (onSegment(point, segment)) points.set(pointKey(point), point);
+    };
+    add({ x: segment.x1, y: segment.y1 });
+    add({ x: segment.x2, y: segment.y2 });
+    accessPoints.forEach(add);
+    for (const other of aisles) {
+      if ((segment.x1 === segment.x2) === (other.x1 === other.x2)) continue;
+      const intersection = segment.x1 === segment.x2
+        ? { x: segment.x1, y: other.y1 } : { x: other.x1, y: segment.y1 };
+      if (onSegment(intersection, other)) add(intersection);
+    }
+    const ordered = [...points.values()].sort((a, b) => a.x - b.x || a.y - b.y);
+    for (let i = 1; i < ordered.length; i++) connect(ordered[i - 1], ordered[i]);
   }
-  const ys = [...lanes.keys()].filter((y) => y <= queueEntrance.y).sort((a, b) => a - b);
-  for (let i = 1; i < ys.length; i++) connect({ x: spineX, y: ys[i - 1] }, { x: spineX, y: ys[i] });
-  connect({ x: 522, y: 865 }, { x: 522, y: 990 });
   return edges;
 }
 

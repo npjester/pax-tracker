@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { boothNumbers, mappedBooths, partitionStops, planRoute, queueEntrance, type RouteStart } from './booth-route';
+import { aisles, boothNumbers, mappedBooths, partitionStops, planRoute, queueEntrance, type RouteStart } from './booth-route';
 import type { Booth } from './store';
 
 const officialMap = 'https://unplugged.paxsite.com/philly/en-us/info/maps.html';
@@ -83,9 +83,7 @@ export function MapPage({ booths }: { booths: Booth[] }) {
           <svg viewBox="105 65 940 1095" role="img" aria-labelledby="aisle-title aisle-description">
             <title id="aisle-title">Partial Hall B map</title>
             <desc id="aisle-description">Mapped booths and approximate aisles near the Queue entrance. The route and excluded stops are also listed below.</desc>
-            {[96, 195, 300, 450, 610, 710, 865].map((y) => <path key={y} d={`M 130 ${y} H ${y <= 450 ? 1030 : 590}`} className="map-aisle" />)}
-            <path d="M 262 96 V 865 H 130" className="map-aisle" />
-            <path d="M 130 865 H 1030 M 522 865 V 990 H 1030" className="map-aisle" />
+            {aisles.map(({ x1, y1, x2, y2 }) => <path key={`${x1},${y1}-${x2},${y2}`} d={`M ${x1} ${y1} L ${x2} ${y2}`} className="map-aisle" />)}
             <rect x="136" y="895" width="154" height="240" rx="3" className="map-obstacle" />
             <text x="213" y="1015" textAnchor="middle" className="map-context">Unmapped</text>
             {line && <polyline points={line} className="map-route" />}
