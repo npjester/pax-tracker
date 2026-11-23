@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { mappedBooths, partitionStops, planRoute, queueEntrance, type RouteStart } from './booth-route';
+import { boothNumbers, mappedBooths, partitionStops, planRoute, queueEntrance, type RouteStart } from './booth-route';
 import type { Booth } from './store';
 
 const officialMap = 'https://unplugged.paxsite.com/philly/en-us/info/maps.html';
@@ -9,11 +9,17 @@ export function MapPage({ booths }: { booths: Booth[] }) {
   const [scope, setScope] = useState<Scope>('remaining');
   const [selected, setSelected] = useState<string[]>([]);
   const [startValue, setStartValue] = useState('');
+  const [choices, setChoices] = useState<Record<string, string>>({});
+  const [fitMap, setFitMap] = useState(false);
   const startBooth = mappedBooths.find((item) => `booth:${item.number}` === startValue);
   const start: RouteStart | null = startValue === 'entrance:queue' ? { kind: 'entrance', id: 'queue' } :
     startBooth ? { kind: 'booth', position: startBooth } : null;
   const included = booths.filter((booth) => scope === 'all' || (scope === 'remaining' ? !booth.visited : selected.includes(booth.id)));
-  const { mapped, unmapped } = partitionStops(included);
+  const { mapped, unmapped } = partitionStops(included, choices);
+  const multipleLocations = included.map((booth) => ({
+    booth,
+    numbers: boothNumbers(booth.booth_number),
+  })).filter(({ numbers }) => numbers.length > 1);
   const route = start && mapped.length ? planRoute(start, mapped) : null;
   const stops = route?.stops ?? [];
   const line = route?.points.map((point) => `${point.x},${point.y}`).join(' ') ?? '';
@@ -56,17 +62,32 @@ export function MapPage({ booths }: { booths: Booth[] }) {
         <span>{booth.name} · {booth.booth_number || 'Booth TBD'}</span>
       </label>)}
     </fieldset> : <p>Add booths to your checklist before selecting stops.</p>)}
+    {multipleLocations.length > 0 && <div className="map-location-choices">
+      <h3>Choose a location</h3>
+      <p>These exhibitors list multiple booth numbers. Choose one mapped booth for each route; other locations are not included.</p>
+      {multipleLocations.map(({ booth, numbers }) => {
+        const options = mappedBooths.filter((position) => numbers.includes(position.number));
+        return <label key={booth.id}>{booth.name} · {booth.booth_number}
+          <select value={options.some((position) => position.number === choices[booth.id]) ? choices[booth.id] : ''} onChange={(event) =>
+            setChoices((current) => ({ ...current, [booth.id]: event.target.value }))}>
+            <option value="">{options.length ? 'Choose a mapped booth' : 'No mapped locations yet'}</option>
+            {options.map((position) => <option value={position.number} key={position.number}>Booth {position.number}</option>)}
+          </select>
+        </label>;
+      })}
+    </div>}
     <div className="map-layout">
       <div className="map-surface">
-        <div className="map-caption"><strong>Hall B</strong><span>Partial map · scroll to explore</span></div>
-        <div className="map-scroll" tabIndex={0} aria-label="Scroll the partial Hall B map horizontally">
-          <svg viewBox="105 65 940 835" role="img" aria-labelledby="aisle-title aisle-description">
+        <div className="map-caption"><div><strong>Hall B</strong><span>{fitMap ? 'Full map overview' : 'Swipe or scroll to explore'}</span></div><button type="button" className="map-zoom" onClick={() => setFitMap(!fitMap)}>{fitMap ? 'Show detail' : 'Fit map'}</button></div>
+        <div className={`map-scroll${fitMap ? ' map-scroll-fit' : ''}`} tabIndex={0} aria-label="Scroll the partial Hall B map horizontally">
+          <svg viewBox="105 65 940 1095" role="img" aria-labelledby="aisle-title aisle-description">
             <title id="aisle-title">Partial Hall B map</title>
             <desc id="aisle-description">Mapped booths and approximate aisles near the Queue entrance. The route and excluded stops are also listed below.</desc>
             {[96, 195, 300, 450, 610, 710, 865].map((y) => <path key={y} d={`M 130 ${y} H ${y <= 450 ? 1030 : 590}`} className="map-aisle" />)}
             <path d="M 262 96 V 865 H 130" className="map-aisle" />
-            <rect x="615" y="483" width="200" height="357" rx="3" className="map-obstacle" />
-            <text x="715" y="650" textAnchor="middle" className="map-context">Unmapped</text>
+            <path d="M 130 865 H 1030 M 522 865 V 990 H 1030" className="map-aisle" />
+            <rect x="136" y="895" width="154" height="240" rx="3" className="map-obstacle" />
+            <text x="213" y="1015" textAnchor="middle" className="map-context">Unmapped</text>
             {line && <polyline points={line} className="map-route" />}
             {mappedBooths.map((position) => {
               const stopIndex = stops.findIndex((stop) => stop.position.number === position.number);
@@ -87,13 +108,14 @@ export function MapPage({ booths }: { booths: Booth[] }) {
       <div className="route-list">
         <h3>Route stops</h3>
         {!included.length ? <p>{scope === 'selected' ? 'Select booths from your checklist to plan a route.' : 'No checklist booths are included in this route.'}</p> :
-          !mapped.length ? <p>None of the included booths are in the mapped section yet.</p> :
+          !mapped.length ? <p>{multipleLocations.some(({ booth, numbers }) => !choices[booth.id] && mappedBooths.some((position) => numbers.includes(position.number))) ?
+            'Choose a mapped location above to include it in the route.' : 'None of the included booths are in the mapped section yet.'}</p> :
             !start ? <p>Choose a starting location to see the route.</p> : <ol>
               {stops.map(({ booth, position }) => <li key={booth.id}><strong>{booth.name}</strong><span>Booth {position.number}{booth.visited ? ' · Visited' : ''}</span></li>)}
             </ol>}
         {unmapped.length > 0 && <div className="unmapped">
           <h3>Not included on map ({unmapped.length})</h3>
-          <p>Outside the prototype, missing a single booth number, or sharing a number with another included stop.</p>
+          <p>Outside the prototype, awaiting a location choice, or sharing a number with another included stop.</p>
           <ul>{unmapped.map((booth) => <li key={booth.id}>{booth.name} · {booth.booth_number || 'Booth TBD'}</li>)}</ul>
         </div>}
       </div>

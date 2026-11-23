@@ -65,6 +65,17 @@ const rows: BoothRow[] = [
   ['2019', 'Dire Wolf Digital', 270, 727, 126, 112, 865],
   ['2318', 'IV Studio', 430, 727, 72, 112, 865],
   ['2518', 'Roxley Games', 535, 801, 48, 38, 865],
+  ['2626', 'Asmodee', 615, 483, 200, 357, 865],
+  ['2933', 'PAX Rising Showcase', 901, 483, 120, 111, 450, 'top'],
+  ['2919', 'UVS', 901, 625, 120, 214, 865],
+  ['2401', 'Games Workshop', 350, 895, 160, 240, 865, 'top'],
+  ['2511', 'Booth 2511', 535, 895, 48, 80, 865, 'top'],
+  ['2611', 'Leder Games', 615, 895, 47, 80, 865, 'top'],
+  ['2711', 'Bezier Games', 695, 895, 126, 80, 865, 'top'],
+  ['2911', 'Allplay', 855, 895, 166, 80, 865, 'top'],
+  ['2801', 'Cardboard Alchemy', 774, 1011, 45, 124, 990, 'top'],
+  ['2905', 'Booth 2905', 855, 1011, 46, 61, 990, 'top'],
+  ['3102', 'Bitewing Games', 963, 1011, 58, 89, 990, 'top'],
 ];
 
 export const mappedBooths: MapPosition[] = rows.map(([number, name, x, y, width, height, aisle, access]) => ({

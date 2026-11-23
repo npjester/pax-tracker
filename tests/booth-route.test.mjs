@@ -1,16 +1,34 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { mappedBooths, partitionStops, planRoute, queueEntrance } from '../src/booth-route.ts';
+import { boothNumbers, mappedBooths, partitionStops, planRoute, queueEntrance } from '../src/booth-route.ts';
 
 const booth = (id, booth_number) => ({ id, booth_number, name: id, visited: false });
 
-test('excludes missing, multi-location and duplicate booth numbers', () => {
+test('excludes missing, unresolved multi-location and duplicate booth numbers', () => {
   const { mapped, unmapped } = partitionStops([
     booth('one', '1851'), booth('two', '2051'), booth('duplicate', '2051'),
     booth('multi', '1951/2051'), booth('unknown', ''),
   ]);
   assert.deepEqual(mapped.map((stop) => stop.booth.id), ['one']);
   assert.deepEqual(unmapped.map((stop) => stop.id), ['two', 'duplicate', 'multi', 'unknown']);
+});
+
+test('matches booth numbers without treating rooms and other locations as booth numbers', () => {
+  assert.deepEqual(boothNumbers('2626, Room 201B, Gaming Hall Block 32'), ['2626']);
+  assert.deepEqual(boothNumbers('Booth 2547/2551; 2911'), ['2547', '2551', '2911']);
+  assert.deepEqual(boothNumbers('Room 2026, GH-4301'), []);
+  const { mapped } = partitionStops([booth('asmodee', '2626, Room 201B, Gaming Hall Block 32')]);
+  assert.equal(mapped[0].position.number, '2626');
+});
+
+test('requires a valid explicit location for a multi-booth exhibitor', () => {
+  const multi = booth('allplay', '2905, 2911, GH-43C');
+  assert.equal(partitionStops([multi]).unmapped.length, 1);
+  assert.equal(partitionStops([multi], { allplay: '1851' }).unmapped.length, 1);
+  const { mapped, unmapped } = partitionStops([multi], { allplay: '2911' });
+  assert.equal(mapped[0].position.number, '2911');
+  assert.equal(unmapped.length, 0);
+  assert.equal(partitionStops([multi, booth('duplicate', '2911')], { allplay: '2911' }).unmapped.length, 2);
 });
 
 test('starts at the chosen booth, then follows mapped aisles to the nearest stop', () => {
@@ -21,16 +39,16 @@ test('starts at the chosen booth, then follows mapped aisles to the nearest stop
   assert.deepEqual(route.points[0], { x: start.x + start.width / 2, y: start.y + start.height });
 });
 
-test('routes from the queue to every mapped booth without crossing booth interiors', () => {
+test('routes between mapped booths and the queue without crossing booth interiors', () => {
   const obstacles = [
-    { number: 'Asmodee', x: 615, y: 483, width: 200, height: 357 },
+    { number: 'Warhammer', x: 136, y: 895, width: 154, height: 240 },
     { number: 'C6', x: 215, y: 339, width: 30, height: 30 },
     { number: 'C7', x: 225, y: 746, width: 30, height: 30 },
   ];
-  for (const target of mappedBooths) {
+  for (const start of [null, ...mappedBooths]) for (const target of mappedBooths) {
     const stop = { booth: booth(target.number, target.number), position: target };
-    const route = planRoute({ kind: 'entrance', id: 'queue' }, [stop]);
-    assert.deepEqual(route.points[0], { x: queueEntrance.x, y: queueEntrance.y });
+    const route = planRoute(start ? { kind: 'booth', position: start } : { kind: 'entrance', id: 'queue' }, [stop]);
+    if (!start) assert.deepEqual(route.points[0], { x: queueEntrance.x, y: queueEntrance.y });
     for (let i = 1; i < route.points.length; i++) {
       const a = route.points[i - 1];
       const b = route.points[i];

@@ -15,18 +15,24 @@ const boothPoint = (position: MapPosition): Point => ({
   x: center(position), y: position.access === 'top' ? position.y : position.y + position.height,
 });
 
-export function partitionStops(booths: Booth[]) {
+export function boothNumbers(value: string) {
+  return [...new Set(value.split(/[,/;]/).map((part) => part.trim().replace(/^booth\s+/i, ''))
+    .filter((part) => /^\d{4}$/.test(part)))];
+}
+
+export function partitionStops(booths: Booth[], choices: Record<string, string> = {}) {
   const counts = new Map<string, number>();
-  for (const booth of booths) {
-    const number = booth.booth_number.trim();
-    counts.set(number, (counts.get(number) ?? 0) + 1);
-  }
+  const resolved = booths.map((booth) => {
+    const numbers = boothNumbers(booth.booth_number);
+    const number = numbers.length === 1 ? numbers[0] : numbers.includes(choices[booth.id]) ? choices[booth.id] : '';
+    const position = mappedBooths.find((item) => item.number === number);
+    if (position) counts.set(number, (counts.get(number) ?? 0) + 1);
+    return { booth, position };
+  });
   const mapped: MappedStop[] = [];
   const unmapped: Booth[] = [];
-  for (const booth of booths) {
-    const number = booth.booth_number.trim();
-    const position = mappedBooths.find((item) => item.number === number);
-    if (position && counts.get(number) === 1) mapped.push({ booth, position });
+  for (const { booth, position } of resolved) {
+    if (position && counts.get(position.number) === 1) mapped.push({ booth, position });
     else unmapped.push(booth);
   }
   return { mapped, unmapped };
@@ -35,11 +41,12 @@ export function partitionStops(booths: Booth[]) {
 function buildGraph() {
   const lanes = new Map<number, Set<number>>();
   for (const position of mappedBooths) {
-    const xs = lanes.get(position.aisle) ?? new Set<number>([spineX]);
+    const xs = lanes.get(position.aisle) ?? new Set<number>([position.aisle === 990 ? 522 : spineX]);
     xs.add(center(position));
     lanes.set(position.aisle, xs);
   }
   lanes.get(queueEntrance.y)!.add(queueEntrance.x);
+  lanes.get(queueEntrance.y)!.add(522);
   const edges = new Map<string, { key: string; distance: number }[]>();
   function connect(a: Point, b: Point) {
     const ak = pointKey(a);
@@ -52,8 +59,9 @@ function buildGraph() {
     const xs = [...positions].sort((a, b) => a - b);
     for (let i = 1; i < xs.length; i++) connect({ x: xs[i - 1], y }, { x: xs[i], y });
   }
-  const ys = [...lanes.keys()].sort((a, b) => a - b);
+  const ys = [...lanes.keys()].filter((y) => y <= queueEntrance.y).sort((a, b) => a - b);
   for (let i = 1; i < ys.length; i++) connect({ x: spineX, y: ys[i - 1] }, { x: spineX, y: ys[i] });
+  connect({ x: 522, y: 865 }, { x: 522, y: 990 });
   return edges;
 }
 
