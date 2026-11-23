@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { aisles, boothNumbers, mappedBooths, partitionStops, planRoute, queueEntrance, type RouteStart } from './booth-route';
+import { aisles, boothNumbers, boothPoint, mappedBooths, partitionStops, planRoute, queueEntrance, type RouteStart } from './booth-route';
 import type { Booth } from './store';
 
 const officialMap = 'https://unplugged.paxsite.com/philly/en-us/info/maps.html';
@@ -48,7 +48,7 @@ export function MapPage({ booths }: { booths: Booth[] }) {
           </optgroup>
           <optgroup label="Mapped booths">
             {[...mappedBooths].sort((a, b) => a.number.localeCompare(b.number)).map((position) =>
-              <option value={`booth:${position.number}`} key={position.number}>{position.number} · {position.name}</option>)}
+              <option value={`booth:${position.number}`} key={position.number}>{position.name === `Booth ${position.number}` ? position.name : `${position.number} · ${position.name}`}</option>)}
           </optgroup>
         </select>
       </label>
@@ -80,7 +80,7 @@ export function MapPage({ booths }: { booths: Booth[] }) {
       <div className="map-surface">
         <div className="map-caption"><div><strong>Hall B</strong><span>{fitMap ? 'Full map overview' : 'Swipe or scroll to explore'}</span></div><button type="button" className="map-zoom" onClick={() => setFitMap(!fitMap)}>{fitMap ? 'Show detail' : 'Fit map'}</button></div>
         <div className={`map-scroll${fitMap ? ' map-scroll-fit' : ''}`} tabIndex={0} aria-label="Scroll the partial Hall B map horizontally">
-          <svg viewBox="105 65 940 1095" role="img" aria-labelledby="aisle-title aisle-description">
+          <svg viewBox="105 -5 940 1165" role="img" aria-labelledby="aisle-title aisle-description">
             <title id="aisle-title">Partial Hall B map</title>
             <desc id="aisle-description">Mapped booths and approximate aisles near the Queue entrance. The route and excluded stops are also listed below.</desc>
             {aisles.map(({ x1, y1, x2, y2 }) => <path key={`${x1},${y1}-${x2},${y2}`} d={`M ${x1} ${y1} L ${x2} ${y2}`} className="map-aisle" />)}
@@ -91,11 +91,12 @@ export function MapPage({ booths }: { booths: Booth[] }) {
               const stopIndex = stops.findIndex((stop) => stop.position.number === position.number);
               const x = position.x + position.width / 2;
               const y = position.y + position.height / 2;
+              const entry = boothPoint(position);
               return <g key={position.number}>
                 <rect x={position.x} y={position.y} width={position.width} height={position.height} rx="3" className={stopIndex >= 0 ? 'map-booth map-booth-active' : 'map-booth'} />
                 <text x={x} y={y + 3} textAnchor="middle" className="map-number" textLength={Math.min(position.width - 4, 25)} lengthAdjust="spacingAndGlyphs">{position.number}</text>
                 {stopIndex >= 0 && <><circle cx={position.x + position.width - 3} cy={position.y + 3} r="11" className="map-marker" /><text x={position.x + position.width - 3} y={position.y + 7} textAnchor="middle" className="map-marker-label">{stopIndex + 1}</text></>}
-                {startBooth?.number === position.number && <circle cx={x} cy={position.access === 'top' ? position.y : position.y + position.height} r="6" className="map-start" />}
+                {startBooth?.number === position.number && <circle cx={entry.x} cy={entry.y} r="6" className="map-start" />}
               </g>;
             })}
             <circle cx={queueEntrance.x} cy={queueEntrance.y} r="6" className={start?.kind === 'entrance' ? 'map-start' : 'map-entrance'} />

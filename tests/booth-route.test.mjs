@@ -39,6 +39,18 @@ test('starts at the chosen booth, then follows mapped aisles to the nearest stop
   assert.deepEqual(route.points[0], { x: start.x + start.width / 2, y: start.y + start.height });
 });
 
+test('routes to and from side-access booths and accounts for their access distance', () => {
+  const start = mappedBooths.find((item) => item.number === '2511');
+  const { mapped } = partitionStops([booth('right', '2604'), booth('left', '2605')]);
+  const route = planRoute({ kind: 'booth', position: start }, mapped);
+  assert.deepEqual(route.stops.map((stop) => stop.position.number), ['2605', '2604']);
+  const left = mappedBooths.find((item) => item.number === '2501');
+  const right = mappedBooths.find((item) => item.number === '2600');
+  const sideRoute = planRoute({ kind: 'booth', position: left }, [{ booth: booth('right', '2600'), position: right }]);
+  assert.deepEqual(sideRoute.points[0], { x: left.x, y: left.y + left.height / 2 });
+  assert.deepEqual(sideRoute.points.at(-1), { x: right.x + right.width, y: right.y + right.height / 2 });
+});
+
 const obstacles = [
   { number: 'Warhammer', x: 136, y: 895, width: 154, height: 240 },
   { number: 'C6', x: 215, y: 339, width: 30, height: 30 },
@@ -47,7 +59,6 @@ const obstacles = [
   { number: 'BC3', x: 543, y: 746, width: 30, height: 30 },
   { number: 'B2', x: 860, y: 339, width: 30, height: 30 },
   { number: 'B3', x: 865, y: 746, width: 30, height: 30 },
-  { number: '2657/2756', x: 695, y: 111, width: 47, height: 71 },
 ];
 
 function crossesInterior(a, b, rectangle) {

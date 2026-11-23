@@ -8,11 +8,13 @@ export type MappedStop = { booth: Booth; position: MapPosition };
 export type RouteStart = { kind: 'booth'; position: MapPosition } | { kind: 'entrance'; id: 'queue' };
 
 const pointKey = (point: Point) => `${point.x},${point.y}`;
-const center = (position: MapPosition) => position.x + position.width / 2;
-const aislePoint = (position: MapPosition): Point => ({ x: center(position), y: position.aisle });
-const boothPoint = (position: MapPosition): Point => ({
-  x: center(position), y: position.access === 'top' ? position.y : position.y + position.height,
-});
+const sideAccess = (position: MapPosition) => position.access === 'left' || position.access === 'right';
+const aislePoint = (position: MapPosition): Point => sideAccess(position)
+  ? { x: position.aisle, y: position.y + position.height / 2 }
+  : { x: position.x + position.width / 2, y: position.aisle };
+export const boothPoint = (position: MapPosition): Point => sideAccess(position)
+  ? { x: position.access === 'left' ? position.x : position.x + position.width, y: position.y + position.height / 2 }
+  : { x: position.x + position.width / 2, y: position.access === 'top' ? position.y : position.y + position.height };
 
 export function boothNumbers(value: string) {
   return [...new Set(value.split(/[,/;]/).map((part) => part.trim().replace(/^booth\s+/i, ''))
@@ -116,8 +118,11 @@ export function planRoute(start: RouteStart, stops: MappedStop[]) {
   while (remaining.length) {
     const { distances, previous } = shortestPaths(current);
     remaining.sort((a, b) => {
-      const cost = (stop: MappedStop) => (distances.get(pointKey(aislePoint(stop.position))) ?? Infinity) +
-        Math.abs(boothPoint(stop.position).y - stop.position.aisle);
+      const cost = (stop: MappedStop) => {
+        const entry = boothPoint(stop.position);
+        const aisle = aislePoint(stop.position);
+        return (distances.get(pointKey(aisle)) ?? Infinity) + Math.abs(entry.x - aisle.x) + Math.abs(entry.y - aisle.y);
+      };
       return cost(a) - cost(b) || a.position.number.localeCompare(b.position.number);
     });
     const next = remaining.shift()!;
