@@ -23,6 +23,14 @@ test('preserves the BGG want-to-buy flag separately from other wants', () => {
   assert.equal(parseCollection('objectid,objectname,own\n3,Older export,1')[0].wantToBuy, undefined);
 });
 
+test('preserves and merges want-to-play independently of other want flags', () => {
+  const games = parseCollection('objectid,objectname,own,wishlist,wanttobuy,wanttoplay\n'
+    + '1,Wishlist,0,1,0,0\n2,Play,0,0,0,1\n2,Play,1,0,0,0\n3,Buy,0,0,1,0');
+  assert.deepEqual(games.map((game) => game.wantToPlay), [false, true, false]);
+  assert.equal(games[1].wanted, true);
+  assert.equal(parseCollection('objectid,objectname,own\n4,Older export,1')[0].wantToPlay, undefined);
+});
+
 test('reads publishers from the version_publishers column of BGG exports', () => {
   const csv = 'objectname,objectid,own,version_publishers\n'
     + 'A,1,1,"Rock, Stone &amp; Dice Games"\nB,2,1,Button Shy\nC,3,1,(Self-Published)\nD,4,1,';

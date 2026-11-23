@@ -58,11 +58,11 @@ export function GamesPage({ ownerId }: { ownerId: string }) {
     })) form.reset();
   }
 
-  async function importCollection() {
+  async function importCollection(kind: GamePlanKind) {
     if (!collection) return;
-    const titles = collection.filter((game) => game.wantToBuy).map((game) => game.title);
+    const titles = collection.filter((game) => kind === 'try' ? game.wantToPlay : game.wantToBuy).map((game) => game.title);
     await run(async () => {
-      const added = await store.importGamesToBuy(titles);
+      const added = await (kind === 'try' ? store.importGamesToTry(titles) : store.importGamesToBuy(titles));
       try {
         const updated = await store.listGamePlans();
         if (active.current) {
@@ -77,17 +77,20 @@ export function GamesPage({ ownerId }: { ownerId: string }) {
 
   function section(kind: GamePlanKind, heading: string) {
     const items = (games ?? []).filter((game) => game.kind === kind).sort((a, b) => a.title.localeCompare(b.title));
+    const flag = kind === 'try' ? 'wantToPlay' : 'wantToBuy';
+    const label = kind === 'try' ? 'want-to-play' : 'want-to-buy';
+    const missingFlag = collection?.some((game) => game[flag] === undefined);
     return <section className="panel game-plan" aria-labelledby={`${kind}-heading`}>
       <h2 id={`${kind}-heading`}>{heading}</h2>
-      {kind === 'buy' && <>
-        <p>Import games marked “want to buy” in your saved BGG collection. Existing entries stay on your list.</p>
+      <>
+        <p>Import games marked “want to {kind === 'try' ? 'play' : 'buy'}” in your saved BGG collection. Existing entries stay on your list.</p>
         {collectionError && <p className="error" role="alert">{collectionError}</p>}
         {collectionLoaded && !collection && <p>Import a CSV on the <a href="#collection">Collection page</a> first.</p>}
-        {collection && collection.some((game) => game.wantToBuy === undefined) &&
-          <p>Re-import a BGG CSV with the wanttobuy column on the <a href="#collection">Collection page</a> to enable want-to-buy import.</p>}
-        <button className="game-import" disabled={busy || !games || !collection || collection.some((game) => game.wantToBuy === undefined)}
-          onClick={() => void importCollection()}>Import BGG want-to-buy games</button>
-      </>}
+        {missingFlag &&
+          <p>Re-import a BGG CSV with the {kind === 'try' ? 'wanttoplay' : 'wanttobuy'} column on the <a href="#collection">Collection page</a> to enable {label} import.</p>}
+        <button className="game-import" disabled={busy || !games || !collection || missingFlag}
+          onClick={() => void importCollection(kind)}>Import BGG {label} games</button>
+      </>
       <form className="inline-form" onSubmit={(event) => void add(event, kind)}>
         <input aria-label={`Add a game to ${heading}`} name="title" placeholder="Game title" required maxLength={300} disabled={busy || !games} />
         <button disabled={busy || !games}>Add</button>

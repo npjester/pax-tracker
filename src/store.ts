@@ -125,6 +125,13 @@ export async function importGamesToBuy(titles: string[]): Promise<number> {
   return data;
 }
 
+export async function importGamesToTry(titles: string[]): Promise<number> {
+  if (localPreview) return preview.importGamesToTry(titles);
+  const { data, error } = await db().rpc('import_games_to_try', { titles });
+  if (error) throw error;
+  return data;
+}
+
 export function errorMessage(error: unknown) {
   if (typeof error === 'object' && error && 'message' in error && typeof error.message === 'string') {
     return error.message;

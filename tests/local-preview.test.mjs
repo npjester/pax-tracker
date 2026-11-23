@@ -30,6 +30,13 @@ test('local preview persists checklist and collection separately and reports mis
   assert.equal(preview.importGamesToBuy(['New game']), 0);
   assert.equal(preview.listGamePlans().length, 3);
   assert.equal(preview.checkGamePlan(manual.id, true).checked, true);
+  const tried = preview.listGamePlans().find((item) => item.kind === 'try');
+  preview.checkGamePlan(tried.id, true);
+  assert.equal(preview.importGamesToTry([' EXISTING game ', 'New try', 'new try']), 1);
+  assert.equal(preview.importGamesToTry(['New try']), 0);
+  assert.equal(preview.listGamePlans().find((item) => item.id === tried.id).checked, true);
+  assert.throws(() => preview.importGamesToTry(['Would be new', '']), /game title/);
+  assert.equal(preview.listGamePlans().some((item) => item.title === 'Would be new'), false);
   preview.removeGamePlan(manual.id);
-  assert.equal(preview.listGamePlans().length, 2);
+  assert.equal(preview.listGamePlans().length, 3);
 });
