@@ -215,7 +215,7 @@ export function Tracker({ ownerId, email }: { ownerId: string; email?: string })
     <section className="tracker-hero">
       <div><h1>{page === 'tracker' ? <>My booth <em>tracker.</em></> : page === 'collection' ? <>My <em>collection.</em></> : page === 'games' ? <>My <em>games.</em></> : page === 'map' ? <>Map &amp; <em>route.</em></> : <>Update <em>booths.</em></>}</h1>
         <p>{page === 'tracker' ? <>Verify booth numbers and game availability with the <a href={expoPage} target="_blank" rel="noreferrer">official PAX Unplugged guide</a>.</> :
-          page === 'collection' ? 'Import your BGG collection and find booths worth visiting.' : page === 'games' ? 'Keep track of games to try and buy.' : page === 'map' ? 'Plan a walk through a small mapped section of the expo hall.' : 'Find exhibitors, update booth numbers, or add your own stops.'}</p></div>
+          page === 'collection' ? 'Import your BGG collection and find booths worth visiting.' : page === 'games' ? 'Keep track of games to try and buy.' : page === 'map' ? 'Plan a walk through mapped booths in the expo hall.' : 'Find exhibitors, update booth numbers, or add your own stops.'}</p></div>
     </section>
     {page === 'tracker' && <section className="stats" aria-label="Checklist progress">
       <div><span>BOOTHS VISITED</span><strong>{visited}<small> / {list.length}</small></strong></div>

@@ -3,7 +3,17 @@ import { aisles, boothNumbers, boothPoint, mappedBooths, partitionStops, planRou
 import type { Booth } from './store';
 
 const officialMap = 'https://unplugged.paxsite.com/philly/en-us/info/maps.html';
+const venueMap = 'https://unplugged.paxsite.com/content/dam/sitebuilder/rna/pax/unplugged/2026/docs/Convention-Center-Map_PAX-Unplugged-2026.pdf.coredownload.951710803.pdf';
 type Scope = 'remaining' | 'all' | 'selected';
+const additionalExhibits = [
+  ['Alexandria RPG Library', '108B'], ['Amoirais', '105'], ['Arkham Horror', '201B'],
+  ['Avantris', '110A'], ['Baldman Games', '103'], ['Chaosium', '109A'],
+  ['Co-Operatives', '118C'], ['Czech Games Edition', '203AB'], ['Games on Demand', '106 & 107'],
+  ['Limithron', '101'], ['Lurking Fears', '110B & 111'], ['Megagame Society', '118AB'],
+  ['Mox Boarding House', '201A'], ['Mystic Realms', '120B'], ['Open the Gates', '124'],
+  ['Paizo', '109B'], ['Renegade Games', '202AB'], ['Spectacle Ink', '120C'],
+  ['Suspense Studio', '117'], ['Winding Path Initiative', '120A'],
+];
 
 export function MapPage({ booths }: { booths: Booth[] }) {
   const [scope, setScope] = useState<Scope>('remaining');
@@ -80,12 +90,16 @@ export function MapPage({ booths }: { booths: Booth[] }) {
       <div className="map-surface">
         <div className="map-caption"><div><strong>Halls A &amp; B</strong><span>{fitMap ? 'Full map overview' : 'Swipe or scroll to explore'}</span></div><button type="button" className="map-zoom" onClick={() => setFitMap(!fitMap)}>{fitMap ? 'Show detail' : 'Fit map'}</button></div>
         <div className={`map-scroll${fitMap ? ' map-scroll-fit' : ''}`} tabIndex={0} aria-label="Scroll the partial expo hall map horizontally">
-          <svg viewBox="105 -5 1550 1165" role="img" aria-labelledby="aisle-title aisle-description">
+          <svg viewBox="105 -45 2055 1205" role="img" aria-labelledby="aisle-title aisle-description">
             <title id="aisle-title">Partial expo hall map</title>
             <desc id="aisle-description">Mapped booths and approximate aisles near the Queue entrance. The route and excluded stops are also listed below.</desc>
             {aisles.map(({ x1, y1, x2, y2 }) => <path key={`${x1},${y1}-${x2},${y2}`} d={`M ${x1} ${y1} L ${x2} ${y2}`} className="map-aisle" />)}
+            <rect x="136" y="-37" width="101" height="116" rx="3" className="map-obstacle" />
+            <text x="186.5" y="18" textAnchor="middle" className="map-context">Minis</text>
+            <text x="186.5" y="36" textAnchor="middle" className="map-context">Gaming</text>
             <rect x="136" y="895" width="154" height="240" rx="3" className="map-obstacle" />
-            <text x="213" y="1015" textAnchor="middle" className="map-context">Unmapped</text>
+            <text x="213" y="1008" textAnchor="middle" className="map-context">Warhammer</text>
+            <text x="213" y="1026" textAnchor="middle" className="map-context">Paint &amp; Take</text>
             {line && <polyline points={line} className="map-route" />}
             {mappedBooths.map((position) => {
               const stopIndex = stops.findIndex((stop) => stop.position.number === position.number);
@@ -119,5 +133,10 @@ export function MapPage({ booths }: { booths: Booth[] }) {
         </div>}
       </div>
     </div>
+    <details className="additional-exhibits">
+      <summary>Exhibits in other rooms</summary>
+      <p>These locations are outside the expo hall and are not included in routes. Check the <a href={venueMap} target="_blank" rel="noreferrer">official venue map</a> for directions.</p>
+      <ul>{additionalExhibits.map(([name, rooms]) => <li key={name}>{name} · {rooms.includes('&') ? 'Rooms' : 'Room'} {rooms}</li>)}</ul>
+    </details>
   </section>;
 }

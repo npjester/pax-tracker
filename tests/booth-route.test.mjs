@@ -52,6 +52,7 @@ test('routes to and from side-access booths and accounts for their access distan
 });
 
 const obstacles = [
+  { number: 'Minis Gaming', x: 136, y: -37, width: 101, height: 116 },
   { number: 'Warhammer', x: 136, y: 895, width: 154, height: 240 },
   { number: 'C6', x: 215, y: 339, width: 30, height: 30 },
   { number: 'C7', x: 225, y: 746, width: 30, height: 30 },
@@ -63,17 +64,27 @@ const obstacles = [
   { number: 'AB3', x: 1183, y: 751, width: 30, height: 30 },
   { number: 'A2', x: 1502, y: 339, width: 30, height: 30 },
   { number: 'A3', x: 1502, y: 751, width: 30, height: 30 },
+  { number: 'A6', x: 1825, y: 339, width: 30, height: 30 },
+  { number: 'A7', x: 1825, y: 751, width: 30, height: 30 },
 ];
+
+test('mapped booth numbers uniquely identify a location', () => {
+  const numbers = mappedBooths.map((position) => position.number);
+  assert.equal(new Set(numbers).size, numbers.length);
+});
 
 test('routes between the Queue, Hall B and newly mapped Hall A booths', () => {
   const { mapped, unmapped } = partitionStops([
     booth('hall-b', '1821'), booth('hall-a-north', '3342'), booth('hall-a-south', '3209'),
+    booth('hall-a-east', '4143'), booth('hall-a-edge', '4359'),
   ]);
   assert.equal(unmapped.length, 0);
   const route = planRoute({ kind: 'entrance', id: 'queue' }, mapped);
-  assert.equal(route.stops.length, 3);
+  assert.equal(route.stops.length, 5);
   assert.ok(route.points.some((point) => point.x > 1200 && point.y === 1018));
-  assert.deepEqual(new Set(route.stops.map((stop) => stop.booth.id)), new Set(['hall-b', 'hall-a-north', 'hall-a-south']));
+  assert.deepEqual(new Set(route.stops.map((stop) => stop.booth.id)), new Set([
+    'hall-b', 'hall-a-north', 'hall-a-south', 'hall-a-east', 'hall-a-edge',
+  ]));
 });
 
 function crossesInterior(a, b, rectangle) {
