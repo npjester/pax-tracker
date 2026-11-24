@@ -19,8 +19,16 @@ test('preserves the BGG want-to-buy flag separately from other wants', () => {
   const games = parseCollection('objectid,objectname,own,wishlist,wanttobuy,wanttoplay\n1,Wishlist,0,1,0,0\n2,Buy,0,0,1,0\n2,Buy,1,0,0,0');
   assert.equal(games[0].wanted, true);
   assert.equal(games[0].wantToBuy, false);
+  assert.equal(games[0].wantToPlay, false);
   assert.equal(games[1].wantToBuy, true);
+  assert.equal(games[1].wantToPlay, false);
   assert.equal(parseCollection('objectid,objectname,own\n3,Older export,1')[0].wantToBuy, undefined);
+  assert.equal(parseCollection('objectid,objectname,own\n3,Older export,1')[0].wantToPlay, undefined);
+});
+
+test('preserves the BGG want-to-play flag across duplicate collection rows', () => {
+  const [game] = parseCollection('objectid,objectname,own,wanttoplay\n1,Try this,0,0\n1,Try this,0,1');
+  assert.equal(game.wantToPlay, true);
 });
 
 test('reads publishers from the version_publishers column of BGG exports', () => {

@@ -116,15 +116,15 @@ export function removeGamePlan(id: string) {
   saveGamePlans(games.filter((game) => game.id !== id));
 }
 
-export function importGamesToBuy(titles: string[]) {
+export function importGamePlans(kind: GamePlanKind, titles: string[]) {
   const games = listGamePlans();
-  const existing = new Set(games.filter((game) => game.kind === 'buy').map((game) => game.title.trim().toLowerCase()));
+  const existing = new Set(games.filter((game) => game.kind === kind).map((game) => game.title.trim().toLowerCase()));
   let added = 0;
   for (const title of titles) {
     const name = title.trim();
     if (!name || name.length > 300) throw new Error('Enter a game title of up to 300 characters.');
     if (existing.has(name.toLowerCase())) continue;
-    games.push({ id: crypto.randomUUID(), kind: 'buy', title: name, checked: false });
+    games.push({ id: crypto.randomUUID(), kind, title: name, checked: false });
     existing.add(name.toLowerCase());
     added++;
   }

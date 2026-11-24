@@ -118,9 +118,9 @@ export async function removeGamePlan(id: string) {
   if (error) throw error;
 }
 
-export async function importGamesToBuy(titles: string[]): Promise<number> {
-  if (localPreview) return preview.importGamesToBuy(titles);
-  const { data, error } = await db().rpc('import_games_to_buy', { titles });
+export async function importGamePlans(kind: GamePlanKind, titles: string[]): Promise<number> {
+  if (localPreview) return preview.importGamePlans(kind, titles);
+  const { data, error } = await db().rpc('import_game_plans', { plan_kind: kind, titles });
   if (error) throw error;
   return data;
 }
