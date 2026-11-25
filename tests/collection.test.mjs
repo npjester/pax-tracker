@@ -31,6 +31,17 @@ test('preserves the BGG want-to-play flag across duplicate collection rows', () 
   assert.equal(game.wantToPlay, true);
 });
 
+test('imports community averages separately from personal ratings and handles missing scores', () => {
+  const games = parseCollection('objectid,objectname,own,wanttoplay,rating,average\n'
+    + '1,Try this,0,1,9,7.235\n1,Try this,0,1,N/A,\n'
+    + '2,Unrated,0,1,N/A,0\n3,Invalid,0,1,N/A,11');
+  assert.equal(games[0].rating, 9);
+  assert.equal(games[0].averageRating, 7.235);
+  assert.equal(games[1].averageRating, null);
+  assert.equal(games[2].averageRating, null);
+  assert.equal(parseCollection('objectid,objectname,own\n4,Older export,1')[0].averageRating, undefined);
+});
+
 test('reads publishers from the version_publishers column of BGG exports', () => {
   const csv = 'objectname,objectid,own,version_publishers\n'
     + 'A,1,1,"Rock, Stone &amp; Dice Games"\nB,2,1,Button Shy\nC,3,1,(Self-Published)\nD,4,1,';

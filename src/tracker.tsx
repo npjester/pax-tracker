@@ -5,11 +5,12 @@ import { ExpoLookup } from './expo-lookup';
 import { CollectionPanel } from './collection-panel';
 import { MapPage } from './map-page';
 import { GamesPage } from './games-page';
+import { GameLibraryPage } from './game-library-page';
 import * as store from './store';
 import type { Booth, Game } from './store';
 
 type Filter = 'all' | 'must' | 'remaining' | 'visited';
-type Page = 'tracker' | 'collection' | 'update' | 'map' | 'games';
+type Page = 'tracker' | 'collection' | 'update' | 'map' | 'games' | 'library';
 type Update = Parameters<typeof store.updateBooth>[1];
 const filters: [Filter, string][] = [['all', 'All booths'], ['must', 'Must visit'], ['remaining', 'Remaining'], ['visited', 'Visited']];
 const priorities: Record<Priority, string> = { must: 'Must visit', recommended: 'Recommended', regular: 'Custom stop' };
@@ -17,6 +18,7 @@ const priorities: Record<Priority, string> = { must: 'Must visit', recommended: 
 function currentPage(): Page {
   const hash = window.location.hash;
   if (hash === '#games') return 'games';
+  if (hash === '#library') return 'library';
   if (hash === '#map' || hash.startsWith('#map?')) return 'map';
   if (hash === '#collection' || hash === '#bgg-collection') return 'collection';
   if (hash === '#update' || hash === '#expo-lookup' || hash === '#add-booth') return 'update';
@@ -220,13 +222,14 @@ export function Tracker({ ownerId, email }: { ownerId: string; email?: string })
       <a href="#tracker" aria-current={page === 'tracker' ? 'page' : undefined}>Tracker</a>
       <a href="#collection" aria-current={page === 'collection' ? 'page' : undefined}>Collection</a>
       <a href="#games" aria-current={page === 'games' ? 'page' : undefined}>Games</a>
+      <a href="#library" aria-current={page === 'library' ? 'page' : undefined}>Game Library</a>
       <a href="#map" aria-current={page === 'map' ? 'page' : undefined}>Map &amp; route</a>
       <a href="#update" aria-current={page === 'update' ? 'page' : undefined}>Update booths</a>
     </nav>
     <section className="tracker-hero">
-      <div><h1>{page === 'tracker' ? <>My booth <em>tracker.</em></> : page === 'collection' ? <>My <em>collection.</em></> : page === 'games' ? <>My <em>games.</em></> : page === 'map' ? <>Map &amp; <em>route.</em></> : <>Update <em>booths.</em></>}</h1>
+      <div><h1>{page === 'tracker' ? <>My booth <em>tracker.</em></> : page === 'collection' ? <>My <em>collection.</em></> : page === 'games' ? <>My <em>games.</em></> : page === 'library' ? <>Game <em>library.</em></> : page === 'map' ? <>Map &amp; <em>route.</em></> : <>Update <em>booths.</em></>}</h1>
         <p>{page === 'tracker' ? <>Verify booth numbers and game availability with the <a href={expoPage} target="_blank" rel="noreferrer">official PAX Unplugged guide</a>.</> :
-          page === 'collection' ? 'Import your BGG collection and find booths worth visiting.' : page === 'games' ? 'Keep track of games to try and buy.' : page === 'map' ? 'Plan a walk through mapped booths in the expo hall.' : 'Find exhibitors, update booth numbers, or add your own stops.'}</p></div>
+          page === 'collection' ? 'Import your BGG collection and find booths worth visiting.' : page === 'games' ? 'Keep track of games to try and buy.' : page === 'library' ? 'See what you want to play at a glance.' : page === 'map' ? 'Plan a walk through mapped booths in the expo hall.' : 'Find exhibitors, update booth numbers, or add your own stops.'}</p></div>
     </section>
     {page === 'tracker' && <section className="stats" aria-label="Checklist progress">
       <div><span>BOOTHS VISITED</span><strong>{visited}<small> / {list.length}</small></strong></div>
@@ -273,6 +276,7 @@ export function Tracker({ ownerId, email }: { ownerId: string; email?: string })
     }
     {booths && page === 'map' && <MapPage booths={list} ownerId={ownerId} />}
     {booths && page === 'games' && <GamesPage ownerId={ownerId} booths={list} boothBusy={busy} onGetBooth={getOrImportExhibitor} />}
+    {booths && page === 'library' && <GameLibraryPage ownerId={ownerId} />}
     {booths && page === 'update' && <>
       <ExpoLookup booths={list} busy={busy} onImport={importExhibitor} onUpdate={(booth, entry) => run(() => store.updateBooth(booth.id, { booth_number: entry.booth_number }),
         (saved) => editBooth(booth.id, (b) => ({ ...b, ...saved })), 'update booth number')} />

@@ -199,6 +199,19 @@ summary span { float: right; color: var(--muted); font: .8rem/1.8 var(--mono); }
 .game-pagination { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .5rem 1rem; padding-top: .8rem; border-top: 1px solid var(--line); }
 .game-pagination p, .game-pagination button { font-size: .85rem; }
 .game-pagination p span { white-space: nowrap; }
+.game-library { display: grid; align-content: start; gap: .85rem; }
+.library-intro { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 1rem 2rem; }
+.library-intro > div { display: grid; gap: .5rem; max-width: 60ch; }
+.library-intro label { width: min(100%, 20rem); }
+.library-count { font-size: .85rem; }
+.library-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 19rem), 1fr)); gap: 0 1.5rem; margin: 0; padding: 0; list-style: none; }
+.library-list li { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; padding: .9rem 0; border-top: 1px solid var(--line); }
+.library-list li a { color: var(--paper); font-weight: 650; overflow-wrap: anywhere; }
+.library-list li a:hover { color: var(--orange); }
+.library-list li > span { flex: none; color: var(--muted); font-size: .8rem; }
+.library-list strong { color: var(--orange); font-size: 1rem; }
+.library-more { justify-self: start; }
+.library-more span { color: var(--muted); font-size: .85em; }
 @media (prefers-reduced-motion: reduce) { .game-booths-chevron { transition: none; } }
 .sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 

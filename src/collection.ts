@@ -3,7 +3,7 @@ import { exhibitorId, type Exhibitor } from './expo.ts';
 
 export type CollectionGame = {
   id: string; title: string; publishers: string[]; owned: boolean; wanted: boolean;
-  wantToBuy?: boolean; wantToPlay?: boolean; rating: number | null;
+  wantToBuy?: boolean; wantToPlay?: boolean; rating: number | null; averageRating?: number | null;
 };
 export type ExpoGame = { exhibitorId: string; title: string };
 export const collectionFileLimit = 5 * 1024 * 1024;
@@ -50,6 +50,8 @@ export function parseCollection(csv: string): CollectionGame[] {
     const wanted = marked(row.wishlist) || marked(row.wanttobuy) || marked(row.wanttoplay);
     const number = Number(row.rating);
     const rating = Number.isFinite(number) && number >= 1 && number <= 10 ? number : null;
+    const average = Number(row.average);
+    const averageRating = Number.isFinite(average) && average >= 1 && average <= 10 ? average : null;
     if (!owned && !wanted && rating === null) continue;
 
     const id = row.objectid.trim();
@@ -62,6 +64,7 @@ export function parseCollection(csv: string): CollectionGame[] {
       id, title, owned: owned || !!previous?.owned, wanted: wanted || !!previous?.wanted,
       ...(fields.includes('wanttobuy') ? { wantToBuy: marked(row.wanttobuy) || !!previous?.wantToBuy } : {}),
       ...(fields.includes('wanttoplay') ? { wantToPlay: marked(row.wanttoplay) || !!previous?.wantToPlay } : {}),
+      ...(fields.includes('average') ? { averageRating: averageRating ?? previous?.averageRating ?? null } : {}),
       rating: rating !== null || previous?.rating != null ? Math.max(rating ?? 0, previous?.rating ?? 0) : null,
       publishers: [...new Set([...(previous?.publishers ?? []), ...publishers])],
     });

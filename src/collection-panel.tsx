@@ -154,7 +154,7 @@ export function CollectionPanel({ ownerId, booths, busy, onImport }: {
 
   return <section id="bgg-collection" className="panel expo-lookup" aria-labelledby="bgg-heading">
     <h2 id="bgg-heading">BoardGameGeek collection</h2>
-    <p>In BoardGameGeek, open <strong>Collection</strong> and use <strong>Download board games → all</strong>. Upload the CSV here. Only game IDs, titles, publisher names, owned and want flags, and your ratings {store.localPreview ? 'are saved in this browser' : 'sync to your private account'}; the original file isn’t saved.</p>
+    <p>In BoardGameGeek, open <strong>Collection</strong> and use <strong>Download board games → all</strong>. Upload the CSV here. Only game IDs, titles, publisher names, owned and want flags, your ratings, and BGG community averages {store.localPreview ? 'are saved in this browser' : 'sync to your private account'}; the original file isn’t saved.</p>
     {loading && <p role="status">Loading your saved collection…</p>}
     {loaded && <form ref={formRef} className="add-form" onSubmit={importCollection}>
       <label>BGG collection CSV<input type="file" name="collection" accept=".csv,text/csv" required disabled={loading || saving || importing || !!replacement} /></label>
