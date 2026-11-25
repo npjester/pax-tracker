@@ -12,6 +12,7 @@ export const supabase = !localPreview && url && key ? createClient(url, key) : n
 export type Game = { id: string; title: string; checked: boolean };
 export type GamePlanKind = 'try' | 'buy';
 export type GamePlan = { id: string; title: string; kind: GamePlanKind; checked: boolean };
+export type SavedCollection = { games: CollectionGame[]; sourceCsv: string | null };
 export type Booth = {
   id: string; name: string; booth_number: string; priority: Priority; visited: boolean; notes: string;
   games: Game[];
@@ -76,9 +77,18 @@ export async function getCollection(ownerId: string): Promise<CollectionGame[] |
   return data?.games ?? null;
 }
 
-export async function saveCollection(ownerId: string, games: CollectionGame[]) {
-  if (localPreview) return preview.saveCollection(games);
-  const { error } = await db().from('bgg_collections').upsert({ owner_id: ownerId, games }, { onConflict: 'owner_id' });
+export async function getSavedCollection(ownerId: string): Promise<SavedCollection | null> {
+  if (localPreview) return preview.getSavedCollection();
+  const { data, error } = await db().from('bgg_collections').select('games,source_csv').eq('owner_id', ownerId).maybeSingle();
+  if (error) throw error;
+  return data ? { games: data.games, sourceCsv: data.source_csv } : null;
+}
+
+export async function saveCollection(ownerId: string, collection: SavedCollection) {
+  if (localPreview) return preview.saveCollection(collection);
+  const { error } = await db().from('bgg_collections').upsert({
+    owner_id: ownerId, games: collection.games, source_csv: collection.sourceCsv,
+  }, { onConflict: 'owner_id' });
   if (error) throw error;
 }
 

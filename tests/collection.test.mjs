@@ -13,6 +13,7 @@ test('imports quoted BGG titles, merges copies, and drops irrelevant columns and
   }]);
   assert.throws(() => parseCollection('objectid,objectname,own\n123,"unfinished,1'), /malformed/);
   assert.throws(() => parseCollection('game,owned\nUnknown,1'), /original BoardGameGeek/);
+  assert.throws(() => parseCollection('objectid,objectname,own\n1,Game,1\0'), /null characters/);
 });
 
 test('preserves the BGG want-to-buy flag separately from other wants', () => {

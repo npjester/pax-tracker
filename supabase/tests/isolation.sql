@@ -11,7 +11,10 @@ select set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000001
 select public.load_shortlist('[{"id":"test-booth","name":"First booth","booth_number":"100","priority":"must","demo":true,"buy":false,"promo":false,"games":[{"id":"test-game","title":"First game"}]}]');
 update public.booths set visited = true, notes = 'Private notes' where id = 'test-booth';
 update public.games set checked = true where id = 'test-game';
-insert into public.bgg_collections (games) values ('[{"id":"123","title":"Private game","owned":true,"wanted":false,"rating":8}]');
+insert into public.bgg_collections (games, source_csv) values (
+  '[{"id":"123","title":"Private game","owned":true,"wanted":false,"rating":8}]',
+  E'objectid,objectname,own,comment\n123,Private game,1,Private comment'
+);
 insert into public.game_plans (kind, title) values ('buy', 'Private game');
 select public.import_games_to_buy('["Private game", "Another game"]');
 select public.import_game_plans('try', '["Want to play"]');
@@ -23,6 +26,15 @@ begin
     or not exists (select from public.games where id = 'test-game' and checked) then
     raise exception 'Reloading the shortlist lost progress';
   end if;
+  if not exists (select from public.bgg_collections where source_csv like '%Private comment%') then
+    raise exception 'Collection CSV was not saved';
+  end if;
+  begin
+    update public.bgg_collections set source_csv = repeat('x', 5242881);
+    raise exception 'Oversized collection CSV was accepted';
+  exception when check_violation then
+    null;
+  end;
 end;
 $$;
 

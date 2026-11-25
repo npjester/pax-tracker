@@ -1,5 +1,5 @@
 import { shortlist } from './shortlist.ts';
-import type { Booth, Game, GamePlan, GamePlanKind } from './store.ts';
+import type { Booth, Game, GamePlan, GamePlanKind, SavedCollection } from './store.ts';
 import type { CollectionGame } from './collection.ts';
 
 const boothKey = 'pax-tracker-preview-booths';
@@ -67,12 +67,18 @@ export function checkGame(id: string, checked: boolean): Game {
 }
 
 export function getCollection(): CollectionGame[] | null {
-  const saved = localStorage.getItem(collectionKey);
-  return saved === null ? null : JSON.parse(saved);
+  return getSavedCollection()?.games ?? null;
 }
 
-export function saveCollection(games: CollectionGame[]) {
-  localStorage.setItem(collectionKey, JSON.stringify(games));
+export function getSavedCollection(): SavedCollection | null {
+  const saved = localStorage.getItem(collectionKey);
+  if (saved === null) return null;
+  const collection: SavedCollection | CollectionGame[] = JSON.parse(saved);
+  return Array.isArray(collection) ? { games: collection, sourceCsv: null } : collection;
+}
+
+export function saveCollection(collection: SavedCollection) {
+  localStorage.setItem(collectionKey, JSON.stringify(collection));
 }
 
 export function removeCollection() {
