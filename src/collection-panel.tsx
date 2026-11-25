@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { collectionFileLimit, parseCollection, parseExpoGames, suggestBooths, type CollectionGame, type ExpoGame } from './collection';
 import { expoGamesFeed, fetchDirectory, matchingBooth, type Exhibitor } from './expo';
 import * as store from './store';
@@ -12,6 +12,7 @@ export function CollectionPanel({ ownerId, booths, busy, onImport }: {
   const [loaded, setLoaded] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [replacement, setReplacement] = useState<CollectionGame[] | null>(null);
   const [importing, setImporting] = useState(false);
   const [refresh, setRefresh] = useState(0);
   const [catalog, setCatalog] = useState<{ booths: Exhibitor[]; games: ExpoGame[] } | null>(null);
@@ -20,7 +21,13 @@ export function CollectionPanel({ ownerId, booths, busy, onImport }: {
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [limit, setLimit] = useState(10);
+  const formRef = useRef<HTMLFormElement>(null);
+  const replacementHeadingRef = useRef<HTMLHeadingElement>(null);
   const hasCollection = !!games?.length;
+
+  useEffect(() => {
+    if (replacement) replacementHeadingRef.current?.focus();
+  }, [replacement]);
 
   useEffect(() => {
     let active = true;
@@ -93,13 +100,35 @@ export function CollectionPanel({ ownerId, booths, busy, onImport }: {
     setMessage('');
     try {
       const imported = parseCollection(await file.text());
-      await store.saveCollection(ownerId, imported);
-      setGames(imported);
-      setLimit(10);
-      setMessage(`Saved ${imported.length.toLocaleString()} games to your account.`);
-      form.reset();
+      if (hasCollection) {
+        setReplacement(imported);
+      } else {
+        await saveImportedCollection(imported);
+      }
     } catch (error) {
       setError(`Couldn’t import the collection. ${store.errorMessage(error)}`);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function saveImportedCollection(imported: CollectionGame[]) {
+    await store.saveCollection(ownerId, imported);
+    setGames(imported);
+    setReplacement(null);
+    setLimit(10);
+    setMessage(`Saved ${imported.length.toLocaleString()} games ${store.localPreview ? 'in this browser' : 'to your account'}.`);
+    formRef.current?.reset();
+  }
+
+  async function confirmReplacement() {
+    if (!replacement || saving) return;
+    setSaving(true);
+    setError('');
+    try {
+      await saveImportedCollection(replacement);
+    } catch (error) {
+      setError(`Couldn’t replace the collection. ${store.errorMessage(error)}`);
     } finally {
       setSaving(false);
     }
@@ -127,15 +156,25 @@ export function CollectionPanel({ ownerId, booths, busy, onImport }: {
     <h2 id="bgg-heading">BoardGameGeek collection</h2>
     <p>In BoardGameGeek, open <strong>Collection</strong> and use <strong>Download board games → all</strong>. Upload the CSV here. Only game IDs, titles, publisher names, owned and want flags, and your ratings {store.localPreview ? 'are saved in this browser' : 'sync to your private account'}; the original file isn’t saved.</p>
     {loading && <p role="status">Loading your saved collection…</p>}
-    {loaded && <form className="add-form" onSubmit={importCollection}>
-      <label>BGG collection CSV<input type="file" name="collection" accept=".csv,text/csv" required disabled={loading || saving || importing} /></label>
-      <button className="primary" disabled={loading || saving || importing}>{saving ? 'Saving…' : hasCollection ? 'Replace saved collection' : 'Import & sync collection'}</button>
+    {loaded && <form ref={formRef} className="add-form" onSubmit={importCollection}>
+      <label>BGG collection CSV<input type="file" name="collection" accept=".csv,text/csv" required disabled={loading || saving || importing || !!replacement} /></label>
+      <button className="primary" disabled={loading || saving || importing || !!replacement}>{saving ? 'Saving…' : hasCollection ? 'Review replacement' : 'Import & sync collection'}</button>
     </form>}
+    {replacement && <section className="collection-preview" aria-labelledby="replacement-heading">
+      <h3 id="replacement-heading" ref={replacementHeadingRef} tabIndex={-1}>Review replacement</h3>
+      <p>This file contains {replacement.length.toLocaleString()} {replacement.length === 1 ? 'game' : 'games'}. Replacing your saved collection of {games?.length.toLocaleString()} {games?.length === 1 ? 'game' : 'games'} cannot be undone. Your booth checklist and game lists won’t change.</p>
+      <p>Example titles:</p>
+      <ul>{replacement.slice(0, 5).map((game) => <li key={game.id}>{game.title}</li>)}</ul>
+      <div className="actions">
+        <button className="primary" disabled={saving} onClick={() => void confirmReplacement()}>{saving ? 'Saving…' : 'Replace collection'}</button>
+        <button disabled={saving} onClick={() => { setReplacement(null); formRef.current?.reset(); }}>Cancel</button>
+      </div>
+    </section>}
     <div className="actions">
       {hasCollection && <span>{games.length.toLocaleString()} games saved</span>}
       {!hasCollection && !loading && <button className="text-button" disabled={saving || importing} onClick={() => setRefresh((n) => n + 1)}>Reload saved collection</button>}
       {!loaded && hasCollection && !loading && <button className="text-button" disabled={saving || importing} onClick={() => { setRefresh((n) => n + 1); setCatalogAttempt((n) => n + 1); }}>Retry refresh</button>}
-      {hasCollection && <button className="text-button" disabled={loading || saving || importing} onClick={() => void remove()}>Remove collection</button>}
+      {hasCollection && <button className="text-button" disabled={loading || saving || importing || !!replacement} onClick={() => void remove()}>Remove collection</button>}
     </div>
     {error && <p className="error" role="alert">{error}</p>}
     <p role="status">{message}</p>
@@ -143,7 +182,7 @@ export function CollectionPanel({ ownerId, booths, busy, onImport }: {
       <h3>Suggested booths</h3>
       <p>Refresh to use the latest saved collection and PAX listings. To update your BGG collection, export and upload a new CSV first.</p>
       <div className="actions">
-        <button disabled={saving || importing || busy} onClick={() => { setMessage(''); setLimit(10); setRefresh((n) => n + 1); setCatalogAttempt((n) => n + 1); }}>Refresh suggestions</button>
+        <button disabled={saving || importing || busy || !!replacement} onClick={() => { setMessage(''); setLimit(10); setRefresh((n) => n + 1); setCatalogAttempt((n) => n + 1); }}>Refresh suggestions</button>
         {catalog && <button className="primary" disabled={busy || saving || importing || !ownedToImport.length} onClick={() => void importOwned()}>
           {importing ? 'Importing booths…' : `Import owned-game booths (${ownedToImport.length})`}
         </button>}

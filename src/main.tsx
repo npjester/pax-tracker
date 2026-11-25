@@ -31,7 +31,7 @@ function SignIn() {
         if (error) throw error;
       } else {
         const address = sentTo || email.trim();
-        const { error } = await supabase.auth.signInWithOtp({ email: address, options: { shouldCreateUser: false } });
+        const { error } = await supabase.auth.signInWithOtp({ email: address });
         if (error) throw error;
         setSentTo(address);
         setMessage('Code sent. Check your inbox or spam folder.');
@@ -52,7 +52,7 @@ function SignIn() {
     </section>
     <section className="panel signin" aria-labelledby="signin-heading">
       <p className="eyebrow">YOUR PRIVATE FIELD GUIDE</p>
-      <h2 id="signin-heading">{sentTo ? 'Check your email' : 'Sign in'}</h2>
+      <h2 id="signin-heading">{sentTo ? 'Check your email' : 'Sign in or sign up'}</h2>
       {!supabase ? <p>This deployment is waiting for its Supabase connection. Sign-in is not available yet.</p> :
         <form onSubmit={submit}>
           {sentTo ? <>
@@ -64,7 +64,7 @@ function SignIn() {
               <button type="button" className="text-button" disabled={busy} onClick={() => { setSentTo(''); setCode(''); setError(''); setMessage(''); }}>Change email</button>
             </div>
           </> : <>
-            <p>Invite-only access. Use the email address that was added for you.</p>
+            <p>Enter your email to receive a one-time sign-in code. New accounts are created automatically.</p>
             <label>Email address<input type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" /></label>
             <button className="primary full" disabled={busy}>{busy ? 'Sending…' : 'Send me a code'} <span aria-hidden="true">→</span></button>
           </>}

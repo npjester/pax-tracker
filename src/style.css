@@ -102,6 +102,8 @@ summary span { float: right; color: var(--muted); font: .8rem/1.8 var(--mono); }
 .inline-form { display: flex; gap: .4rem; margin-block: .5rem; }
 .booth-notes p { white-space: pre-wrap; font-size: .92rem; }
 .empty, .add-booth, .expo-lookup { display: grid; gap: .8rem; }
+.collection-preview { display: grid; gap: .6rem; padding-block: .8rem; border-block: 1px solid var(--line); }
+.collection-preview ul { margin: 0; padding-left: 1.4rem; overflow-wrap: anywhere; }
 .empty button, .expo-lookup > button { justify-self: start; }
 .expo-lookup p:empty, .expo-results:empty { display: none; }
 .expo-results { margin: 0; padding: 0; list-style: none; }
