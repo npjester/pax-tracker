@@ -196,6 +196,9 @@ summary span { float: right; color: var(--muted); font: .8rem/1.8 var(--mono); }
 .game-booths li strong { overflow-wrap: anywhere; }
 .game-booths li p { font-size: .85rem; }
 .game-booths .actions .button, .game-booths .actions button { font-size: .85rem; }
+.game-pagination { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .5rem 1rem; padding-top: .8rem; border-top: 1px solid var(--line); }
+.game-pagination p, .game-pagination button { font-size: .85rem; }
+.game-pagination p span { white-space: nowrap; }
 @media (prefers-reduced-motion: reduce) { .game-booths-chevron { transition: none; } }
 .sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 

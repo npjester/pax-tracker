@@ -7,6 +7,8 @@ import { includeBoothInRoute, readMapState, saveMapState } from './map-state';
 import * as store from './store';
 import type { Booth, GamePlan, GamePlanKind } from './store';
 
+const gamesPerPage = 10;
+
 export function GamesPage({ ownerId, booths, boothBusy, onGetBooth }: {
   ownerId: string; booths: Booth[]; boothBusy: boolean; onGetBooth: (entry: Exhibitor) => Promise<Booth | null>;
 }) {
@@ -21,6 +23,7 @@ export function GamesPage({ ownerId, booths, boothBusy, onGetBooth }: {
   const [catalogError, setCatalogError] = useState('');
   const [catalogAttempt, setCatalogAttempt] = useState(0);
   const [expandedBooths, setExpandedBooths] = useState<Set<string>>(() => new Set());
+  const [pages, setPages] = useState<Record<GamePlanKind, number>>({ try: 0, buy: 0 });
   const active = useRef(true);
   const pending = useRef(false);
 
@@ -84,7 +87,12 @@ export function GamesPage({ ownerId, booths, boothBusy, onGetBooth }: {
     if (!title) return;
     if (await run(async () => {
       const game = await store.addGamePlan(kind, title);
-      if (active.current) setGames((items) => [...(items ?? []), game]);
+      if (active.current) {
+        const updated = [...(games ?? []), game];
+        const sorted = updated.filter((item) => item.kind === kind).sort((a, b) => a.title.localeCompare(b.title));
+        setGames(updated);
+        setPages((current) => ({ ...current, [kind]: Math.floor(sorted.findIndex((item) => item.id === game.id) / gamesPerPage) }));
+      }
     })) form.reset();
   }
 
@@ -137,6 +145,10 @@ export function GamesPage({ ownerId, booths, boothBusy, onGetBooth }: {
     const column = kind === 'try' ? 'wanttoplay' : 'wanttobuy';
     const action = kind === 'try' ? 'play' : 'buy';
     const items = (games ?? []).filter((game) => game.kind === kind).sort((a, b) => a.title.localeCompare(b.title));
+    const pageCount = Math.max(1, Math.ceil(items.length / gamesPerPage));
+    const page = Math.min(pages[kind], pageCount - 1);
+    const start = page * gamesPerPage;
+    const visibleItems = items.slice(start, start + gamesPerPage);
     return <section className="panel game-plan" aria-labelledby={`${kind}-heading`}>
       <div className="game-plan-heading">
         <h2 id={`${kind}-heading`}>{heading}</h2>
@@ -155,7 +167,7 @@ export function GamesPage({ ownerId, booths, boothBusy, onGetBooth }: {
         <input aria-label={`Add a game to ${heading}`} name="title" placeholder="Game title" required maxLength={300} disabled={busy || !games} />
         <button disabled={busy || !games}>Add</button>
       </form>
-      {items.length ? <ul className="game-plan-list">{items.map((game) => {
+      {items.length ? <ul id={`${kind}-game-list`} className="game-plan-list">{visibleItems.map((game) => {
         const matches = boothMatches.get(game.id) ?? [];
         const expanded = expandedBooths.has(game.id);
         const boothLabel = catalogError ? 'Booths unavailable' : !catalog ? 'Find booths' :
@@ -178,7 +190,11 @@ export function GamesPage({ ownerId, booths, boothBusy, onGetBooth }: {
             </button>
             <button className="text-button game-remove" disabled={busy} onClick={() => void run(async () => {
               await store.removeGamePlan(game.id);
-              if (active.current) setGames((current) => current?.filter((item) => item.id !== game.id) ?? null);
+              if (active.current) {
+                setGames((current) => current?.filter((item) => item.id !== game.id) ?? null);
+                const lastPage = Math.max(0, Math.ceil((items.length - 1) / gamesPerPage) - 1);
+                setPages((current) => ({ ...current, [kind]: Math.min(current[kind], lastPage) }));
+              }
             })}>Remove<span className="sr-only"> {game.title} from {heading}</span></button>
           </div>
           <div id={`game-booths-${game.id}`} className="game-booths" hidden={!expanded}>
@@ -199,6 +215,15 @@ export function GamesPage({ ownerId, booths, boothBusy, onGetBooth }: {
           </div>
         </li>;
       })}</ul> : <p>{games ? 'No games added yet.' : error ? 'Game list unavailable.' : 'Loading games…'}</p>}
+      {pageCount > 1 && <nav className="game-pagination" aria-label={`${heading} pages`}>
+        <p aria-live="polite">{start + 1}–{Math.min(start + gamesPerPage, items.length)} of {items.length} games <span>· Page {page + 1} of {pageCount}</span></p>
+        <div className="actions">
+          <button type="button" aria-label={`Previous page of ${heading}`} aria-controls={`${kind}-game-list`} disabled={busy || page === 0}
+            onClick={() => setPages((current) => ({ ...current, [kind]: page - 1 }))}>Previous</button>
+          <button type="button" aria-label={`Next page of ${heading}`} aria-controls={`${kind}-game-list`} disabled={busy || page === pageCount - 1}
+            onClick={() => setPages((current) => ({ ...current, [kind]: page + 1 }))}>Next</button>
+        </div>
+      </nav>}
     </section>;
   }
 
