@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { libraryCollection, libraryGames } from '../src/game-library.ts';
+import { libraryCollection, libraryGames, metricLevel } from '../src/game-library.ts';
 
 test('shows only wanted-to-play games, sorting by community score then title', () => {
   const games = [
@@ -23,4 +23,9 @@ test('reconstructs library scores and weights from the saved CSV, without requir
   assert.equal(game.averageWeight, 3.2);
   assert.deepEqual(libraryCollection({ games, sourceCsv: null }), games);
   assert.throws(() => libraryCollection({ games, sourceCsv: 'invalid' }), /original BoardGameGeek/);
+});
+
+test('maps score and weight scales to color levels', () => {
+  assert.deepEqual([1, 2.8, 5.5, 8.2, 10].map((value) => metricLevel(value, 10)), [0, 1, 2, 4, 4]);
+  assert.deepEqual([1, 1.8, 3, 4.2, 5].map((value) => metricLevel(value, 5)), [0, 1, 2, 4, 4]);
 });

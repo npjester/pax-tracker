@@ -236,6 +236,7 @@ export function GamesPage({ ownerId, booths, boothBusy, onGetBooth }: {
     {message && <p role="status">{message}</p>}
     {catalogError && <p className="error" role="alert">{catalogError} <button type="button" className="text-button" onClick={() => setCatalogAttempt((n) => n + 1)}>Retry booth lookup</button></p>}
     <p>Find booths from the PAX game listings or publishers in your saved BGG collection. Adding a booth includes it in your device’s route and checklist.</p>
+    <p>If a publisher match is missing, add a version of the game to your BGG collection, then download and re-import your CSV on the <a href="#collection">Collection page</a>. A match still depends on the publisher appearing in the export and the PAX directory.</p>
     <div className="game-plan-grid">
       {section('try', 'Games to Try')}
       {section('buy', 'Games to Buy')}

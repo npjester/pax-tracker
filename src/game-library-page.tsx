@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { CollectionGame } from './collection';
-import { libraryCollection, libraryGames } from './game-library';
+import { libraryCollection, libraryGames, metricLevel } from './game-library';
 import * as store from './store';
 
 const initialLimit = 36;
@@ -62,8 +62,8 @@ export function GameLibraryPage({ ownerId }: { ownerId: string }) {
       <ul className="library-list">{games.slice(0, limit).map((game) => <li key={game.id}>
         <a href={`https://boardgamegeek.com/boardgame/${encodeURIComponent(game.id)}`} target="_blank" rel="noreferrer">{game.title}</a>
         <div className="library-metrics">
-          <span>{game.averageRating == null ? 'BGG score unavailable' : <>BGG score <strong>{game.averageRating.toFixed(1)}</strong> / 10</>}</span>
-          <span>{game.averageWeight == null ? 'BGG weight unavailable' : <>BGG weight <strong>{game.averageWeight.toFixed(1)}</strong> / 5</>}</span>
+          <span>{game.averageRating == null ? 'BGG score unavailable' : <>BGG score <strong className="library-score" data-level={metricLevel(game.averageRating, 10)}>{game.averageRating.toFixed(1)}</strong> / 10</>}</span>
+          <span>{game.averageWeight == null ? 'BGG weight unavailable' : <>BGG weight <strong className="library-weight" data-level={metricLevel(game.averageWeight, 5)}>{game.averageWeight.toFixed(1)}</strong> / 5</>}</span>
         </div>
       </li>)}</ul>
       {games.length > limit && <button className="library-more" onClick={() => setLimit((value) => value + initialLimit)}>

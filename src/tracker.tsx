@@ -1,19 +1,25 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { goals, type Priority } from './shortlist';
-import { boothNumberLimit, expoPage, matchingBooth, type Exhibitor } from './expo';
+import { boothNumberLimit, expoGamesFeed, expoPage, fetchDirectory, matchingBooth, type Exhibitor } from './expo';
+import { parseExpoGames, titleKey, type CollectionGame, type ExpoGame } from './collection';
+import { plannedGamesByBooth, type PlannedBoothGame } from './game-booths';
 import { ExpoLookup } from './expo-lookup';
 import { CollectionPanel } from './collection-panel';
 import { MapPage } from './map-page';
 import { GamesPage } from './games-page';
 import { GameLibraryPage } from './game-library-page';
 import * as store from './store';
-import type { Booth, Game } from './store';
+import type { Booth, Game, GamePlan } from './store';
 
 type Filter = 'all' | 'must' | 'remaining' | 'visited';
 type Page = 'tracker' | 'collection' | 'update' | 'map' | 'games' | 'library';
 type Update = Parameters<typeof store.updateBooth>[1];
 const filters: [Filter, string][] = [['all', 'All booths'], ['must', 'Must visit'], ['remaining', 'Remaining'], ['visited', 'Visited']];
 const priorities: Record<Priority, string> = { must: 'Must visit', recommended: 'Recommended', regular: 'Custom stop' };
+const pages: [Page, string][] = [
+  ['tracker', 'Tracker'], ['collection', 'Collection'], ['games', 'Games'],
+  ['library', 'Game Library'], ['map', 'Map & route'], ['update', 'Update booths'],
+];
 
 function currentPage(): Page {
   const hash = window.location.hash;
@@ -50,8 +56,13 @@ function exportChecklist(booths: Booth[]) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-function BoothCard({ booth, busy, update, game, addGame }: {
+function planDescription(match: PlannedBoothGame) {
+  return `${match.plans.map((plan) => `${plan.kind === 'try' ? 'Try' : 'Buy'}${plan.checked ? ' (checked)' : ''}`).join(' / ')} · ${match.reason}`;
+}
+
+function BoothCard({ booth, busy, planned, update, game, addGame }: {
   booth: Booth; busy: boolean;
+  planned: PlannedBoothGame[];
   update: (changes: Update) => Promise<boolean>;
   game: (item: Game, checked: boolean) => void;
   addGame: (title: string) => Promise<boolean>;
@@ -60,6 +71,8 @@ function BoothCard({ booth, busy, update, game, addGame }: {
   type Details = Pick<Booth, 'notes' | 'booth_number' | 'priority'>;
   const [editor, setEditor] = useState<{ draft: Details; original: Details } | null>(null);
   const checked = booth.games.filter((game) => game.checked).length;
+  const manualTitles = new Set(booth.games.map((item) => titleKey(item.title)));
+  const byTitle = new Map(planned.map((item) => [titleKey(item.title), item]));
 
   return <article className={`panel booth ${booth.visited ? 'seen' : ''}`}>
     <div className="booth-top">
@@ -73,12 +86,24 @@ function BoothCard({ booth, busy, update, game, addGame }: {
       </div>
     </div>
     <details>
-      <summary>Game checklist <span>{checked}/{booth.games.length}</span></summary>
+      <summary>Game checklist <span>{checked}/{booth.games.length}{planned.length ? ` · ${planned.length} matched` : ''}</span></summary>
       <ul className="game-list">
-        {booth.games.map((item) => <li key={item.id}>
-          <label><input type="checkbox" checked={item.checked} disabled={busy} onChange={(e) => game(item, e.target.checked)} /><span>{item.title}</span></label>
-        </li>)}
+        {booth.games.map((item) => {
+          const match = byTitle.get(titleKey(item.title));
+          return <li key={item.id}>
+            <label><input type="checkbox" checked={item.checked} disabled={busy} onChange={(e) => game(item, e.target.checked)} /><span>{item.title}</span></label>
+            {match && <p className="booth-game-match">From Games to Try &amp; Buy · {planDescription(match)}</p>}
+          </li>;
+        })}
       </ul>
+      {planned.some((item) => !manualTitles.has(titleKey(item.title))) && <>
+        <p className="booth-game-hint">From <a href="#games">Games to Try &amp; Buy</a> · verify availability</p>
+        <ul className="booth-planned-games">
+          {planned.filter((item) => !manualTitles.has(titleKey(item.title))).map((item) => <li key={titleKey(item.title)}>
+            <strong>{item.title}</strong><span>{planDescription(item)}</span>
+          </li>)}
+        </ul>
+      </>}
       <form className="inline-form" onSubmit={async (event) => {
         event.preventDefault();
         if (gameTitle.trim() && await addGame(gameTitle.trim())) setGameTitle('');
@@ -116,6 +141,9 @@ function BoothCard({ booth, busy, update, game, addGame }: {
 
 export function Tracker({ ownerId, email }: { ownerId: string; email?: string }) {
   const [page, setPage] = useState<Page>(currentPage);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const navRef = useRef<HTMLElement>(null);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
   const [booths, setBooths] = useState<Booth[] | null>(null);
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<Filter>('all');
@@ -123,14 +151,38 @@ export function Tracker({ ownerId, email }: { ownerId: string; email?: string })
   const [busy, setBusy] = useState(true);
   const [message, setMessage] = useState('Loading checklist…');
   const [error, setError] = useState('');
+  const [matchData, setMatchData] = useState<{ plans: GamePlan[]; collection: CollectionGame[]; exhibitors: Exhibitor[]; listings: ExpoGame[] } | null>(null);
+  const [matchError, setMatchError] = useState('');
+  const [matchAttempt, setMatchAttempt] = useState(0);
   const active = useRef(true);
   const pending = useRef(true);
 
   useEffect(() => {
-    const navigate = () => setPage(currentPage());
+    const navigate = () => { setPage(currentPage()); setMenuOpen(false); };
     window.addEventListener('hashchange', navigate);
     return () => window.removeEventListener('hashchange', navigate);
   }, []);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const closeOutside = (event: PointerEvent) => {
+      if (event.target instanceof Node && !navRef.current?.contains(event.target)) setMenuOpen(false);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') { setMenuOpen(false); menuButtonRef.current?.focus(); }
+    };
+    const closeOnResize = () => {
+      if (window.matchMedia('(min-width: 768px)').matches) setMenuOpen(false);
+    };
+    document.addEventListener('pointerdown', closeOutside);
+    document.addEventListener('keydown', closeOnEscape);
+    window.addEventListener('resize', closeOnResize);
+    return () => {
+      document.removeEventListener('pointerdown', closeOutside);
+      document.removeEventListener('keydown', closeOnEscape);
+      window.removeEventListener('resize', closeOnResize);
+    };
+  }, [menuOpen]);
 
   useEffect(() => {
     active.current = true;
@@ -144,6 +196,32 @@ export function Tracker({ ownerId, email }: { ownerId: string; email?: string })
     });
     return () => { active.current = false; };
   }, []);
+
+  useEffect(() => {
+    if (page !== 'tracker' || !booths?.length) return;
+    const controller = new AbortController();
+    let active = true;
+    setMatchData(null);
+    setMatchError('');
+    void Promise.all([
+      store.listGamePlans(),
+      store.getCollection(ownerId),
+      fetchDirectory(controller.signal),
+      fetch(expoGamesFeed, { signal: AbortSignal.any([controller.signal, AbortSignal.timeout(10000)]), cache: 'no-store' }).then(async (response) => {
+        if (!response.ok) throw new Error('The PAX game listings could not be loaded.');
+        return parseExpoGames(await response.json());
+      }),
+    ]).then(([plans, collection, exhibitors, listings]) => {
+      if (active) setMatchData({ plans, collection: collection ?? [], exhibitors, listings });
+    }).catch((error) => {
+      if (active) setMatchError(`Could not load game matches. ${store.errorMessage(error)}`);
+    });
+    return () => { active = false; controller.abort(); };
+  }, [page, ownerId, !!booths?.length, matchAttempt]);
+
+  const plannedMatches = useMemo(() => matchData && booths
+    ? plannedGamesByBooth(matchData.plans, matchData.collection, matchData.exhibitors, matchData.listings, booths)
+    : new Map<string, PlannedBoothGame[]>(), [matchData, booths]);
 
   async function run<T>(request: () => Promise<T>, apply: (data: T) => void, label: string) {
     if (pending.current) return false;
@@ -210,7 +288,7 @@ export function Tracker({ ownerId, email }: { ownerId: string; email?: string })
   const rank = { must: 0, recommended: 1, regular: 2 };
   const shown = list.filter((b) =>
     (filter === 'all' || (filter === 'must' && b.priority === 'must') || (filter === 'remaining' && !b.visited) || (filter === 'visited' && b.visited)) &&
-    (!search || [b.name, b.booth_number, ...b.games.map((g) => g.title)].some((value) => value.toLowerCase().includes(search))),
+    (!search || [b.name, b.booth_number, ...b.games.map((g) => g.title), ...(plannedMatches.get(b.id) ?? []).map((g) => g.title)].some((value) => value.toLowerCase().includes(search))),
   ).sort((a, b) => sort === 'name' ? a.name.localeCompare(b.name) : sort === 'booth' ? boothOrder(a, b) : rank[a.priority] - rank[b.priority] || boothOrder(a, b));
 
   return <main className="shell tracker">
@@ -218,13 +296,17 @@ export function Tracker({ ownerId, email }: { ownerId: string; email?: string })
       const { error } = await store.supabase!.auth.signOut({ scope: 'local' });
       if (error) throw error;
     }, () => {}, 'sign out')}>Sign out</button>}</div>
-    <nav className="page-nav" aria-label="Main navigation">
-      <a href="#tracker" aria-current={page === 'tracker' ? 'page' : undefined}>Tracker</a>
-      <a href="#collection" aria-current={page === 'collection' ? 'page' : undefined}>Collection</a>
-      <a href="#games" aria-current={page === 'games' ? 'page' : undefined}>Games</a>
-      <a href="#library" aria-current={page === 'library' ? 'page' : undefined}>Game Library</a>
-      <a href="#map" aria-current={page === 'map' ? 'page' : undefined}>Map &amp; route</a>
-      <a href="#update" aria-current={page === 'update' ? 'page' : undefined}>Update booths</a>
+    <nav ref={navRef} className="page-nav" aria-label="Main navigation" data-open={menuOpen}>
+      <span className="page-nav-current">{pages.find(([id]) => id === page)?.[1]}</span>
+      <button ref={menuButtonRef} type="button" className="page-nav-toggle" aria-expanded={menuOpen} aria-controls="page-nav-links"
+        onClick={() => setMenuOpen((open) => !open)}>
+        <svg aria-hidden="true" viewBox="0 0 20 20"><path d="M3 5h14M3 10h14M3 15h14" /></svg>
+        Menu
+      </button>
+      <div id="page-nav-links" className="page-nav-links">
+        {pages.map(([id, label]) => <a key={id} href={`#${id}`} aria-current={page === id ? 'page' : undefined}
+          onClick={() => { if (menuOpen) { setMenuOpen(false); menuButtonRef.current?.focus(); } }}>{label}</a>)}
+      </div>
     </nav>
     <section className="tracker-hero">
       <div><h1>{page === 'tracker' ? <>My booth <em>tracker.</em></> : page === 'collection' ? <>My <em>collection.</em></> : page === 'games' ? <>My <em>games.</em></> : page === 'library' ? <>Game <em>library.</em></> : page === 'map' ? <>Map &amp; <em>route.</em></> : <>Update <em>booths.</em></>}</h1>
@@ -239,12 +321,14 @@ export function Tracker({ ownerId, email }: { ownerId: string; email?: string })
     <div className="sync-row">
       <p className={error ? 'error' : ''} role={error ? 'alert' : 'status'}>{error || message}</p>
       {page === 'tracker' && <div className="actions">
-        <button disabled={busy} onClick={() => void run(store.listBooths, setBooths, 'refresh')}>Refresh</button>
+        <button disabled={busy} onClick={() => { setMatchAttempt((n) => n + 1); void run(store.listBooths, setBooths, 'refresh'); }}>Refresh</button>
         <button disabled={!list.length} onClick={() => exportChecklist(list)}>Export list</button>
       </div>}
     </div>
     {booths && page === 'tracker' && <>
       {list.length ? <>
+        {!matchData && !matchError && <p role="status">Loading game matches…</p>}
+        {matchError && <p className="error" role="alert">{matchError} <button type="button" className="text-button" onClick={() => setMatchAttempt((n) => n + 1)}>Retry game matches</button></p>}
         <section className="filters" aria-label="Filter booths">
           <div className="actions">{filters.map(([id, label]) => <button key={id} className="chip" aria-pressed={filter === id} onClick={() => setFilter(id)}>{label}</button>)}</div>
           <div className="fields">
@@ -255,7 +339,7 @@ export function Tracker({ ownerId, email }: { ownerId: string; email?: string })
           </div>
         </section>
         <div className="list-heading"><h2>Booth checklist</h2><span>{shown.length} of {list.length}</span></div>
-        <div className="booth-grid">{shown.map((booth) => <BoothCard key={booth.id} booth={booth} busy={busy}
+        <div className="booth-grid">{shown.map((booth) => <BoothCard key={booth.id} booth={booth} busy={busy} planned={plannedMatches.get(booth.id) ?? []}
           update={(changes) => run(() => store.updateBooth(booth.id, changes), (saved) => editBooth(booth.id, (b) => ({ ...b, ...saved })), 'save booth')}
           game={(item, checked) => void run(() => store.checkGame(item.id, checked), (saved) =>
             editBooth(booth.id, (b) => ({ ...b, games: b.games.map((g) => g.id === item.id ? saved : g) })), 'save game')}
