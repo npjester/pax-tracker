@@ -12,7 +12,8 @@ export function CollectionPanel({ ownerId, booths, busy, onImport }: {
   const [loaded, setLoaded] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [replacement, setReplacement] = useState<CollectionGame[] | null>(null);
+  const [replacement, setReplacement] = useState<store.SavedCollection | null>(null);
+  const [hasSourceCsv, setHasSourceCsv] = useState(false);
   const [importing, setImporting] = useState(false);
   const [refresh, setRefresh] = useState(0);
   const [catalog, setCatalog] = useState<{ booths: Exhibitor[]; games: ExpoGame[] } | null>(null);
@@ -34,8 +35,8 @@ export function CollectionPanel({ ownerId, booths, busy, onImport }: {
     setLoading(true);
     setLoaded(false);
     setError('');
-    void store.getCollection(ownerId).then((data) => {
-      if (active) { setGames(data); setLoaded(true); }
+    void store.getSavedCollection(ownerId).then((data) => {
+      if (active) { setGames(data?.games ?? null); setHasSourceCsv(data?.sourceCsv != null); setLoaded(true); }
     }).catch(() => {
       if (active) setError('Couldn’t load your saved collection. Try refreshing it.');
     }).finally(() => {
@@ -99,7 +100,8 @@ export function CollectionPanel({ ownerId, booths, busy, onImport }: {
     setError('');
     setMessage('');
     try {
-      const imported = parseCollection(await file.text());
+      const sourceCsv = await file.text();
+      const imported = { games: parseCollection(sourceCsv), sourceCsv };
       if (hasCollection) {
         setReplacement(imported);
       } else {
@@ -112,12 +114,13 @@ export function CollectionPanel({ ownerId, booths, busy, onImport }: {
     }
   }
 
-  async function saveImportedCollection(imported: CollectionGame[]) {
+  async function saveImportedCollection(imported: store.SavedCollection) {
     await store.saveCollection(ownerId, imported);
-    setGames(imported);
+    setGames(imported.games);
+    setHasSourceCsv(imported.sourceCsv != null);
     setReplacement(null);
     setLimit(10);
-    setMessage(`Saved ${imported.length.toLocaleString()} games ${store.localPreview ? 'in this browser' : 'to your account'}.`);
+    setMessage(`Saved ${imported.games.length.toLocaleString()} games ${store.localPreview ? 'in this browser' : 'to your account'}.`);
     formRef.current?.reset();
   }
 
@@ -144,6 +147,7 @@ export function CollectionPanel({ ownerId, booths, busy, onImport }: {
     try {
       await store.removeCollection(ownerId);
       setGames(null);
+      setHasSourceCsv(false);
       setMessage('Removed the saved collection. Your booth checklist is unchanged.');
     } catch {
       setError('Couldn’t remove the saved collection. Try again.');
@@ -154,7 +158,8 @@ export function CollectionPanel({ ownerId, booths, busy, onImport }: {
 
   return <section id="bgg-collection" className="panel expo-lookup" aria-labelledby="bgg-heading">
     <h2 id="bgg-heading">BoardGameGeek collection</h2>
-    <p>In BoardGameGeek, open <strong>Collection</strong> and use <strong>Download board games → all</strong>. Upload the CSV here. Only game IDs, titles, publisher names, owned and want flags, your ratings, and BGG community averages {store.localPreview ? 'are saved in this browser' : 'sync to your private account'}; the original file isn’t saved.</p>
+    <p>In BoardGameGeek, open <strong>Collection</strong> and use <strong>Download board games → all</strong>. Upload the CSV here. The full CSV, including all columns and personal comments, {store.localPreview ? 'is saved in this browser' : 'syncs to your private account'} for future features.</p>
+    {hasCollection && !hasSourceCsv && <p>Your saved collection predates full CSV storage. Re-import it once to preserve all its columns for future features.</p>}
     {loading && <p role="status">Loading your saved collection…</p>}
     {loaded && <form ref={formRef} className="add-form" onSubmit={importCollection}>
       <label>BGG collection CSV<input type="file" name="collection" accept=".csv,text/csv" required disabled={loading || saving || importing || !!replacement} /></label>
@@ -162,9 +167,9 @@ export function CollectionPanel({ ownerId, booths, busy, onImport }: {
     </form>}
     {replacement && <section className="collection-preview" aria-labelledby="replacement-heading">
       <h3 id="replacement-heading" ref={replacementHeadingRef} tabIndex={-1}>Review replacement</h3>
-      <p>This file contains {replacement.length.toLocaleString()} {replacement.length === 1 ? 'game' : 'games'}. Replacing your saved collection of {games?.length.toLocaleString()} {games?.length === 1 ? 'game' : 'games'} cannot be undone. Your booth checklist and game lists won’t change.</p>
+      <p>This file contains {replacement.games.length.toLocaleString()} {replacement.games.length === 1 ? 'game' : 'games'} used by the app. Replacing your saved collection of {games?.length.toLocaleString()} {games?.length === 1 ? 'game' : 'games'} and its CSV cannot be undone. Your booth checklist and game lists won’t change.</p>
       <p>Example titles:</p>
-      <ul>{replacement.slice(0, 5).map((game) => <li key={game.id}>{game.title}</li>)}</ul>
+      <ul>{replacement.games.slice(0, 5).map((game) => <li key={game.id}>{game.title}</li>)}</ul>
       <div className="actions">
         <button className="primary" disabled={saving} onClick={() => void confirmReplacement()}>{saving ? 'Saving…' : 'Replace collection'}</button>
         <button disabled={saving} onClick={() => { setReplacement(null); formRef.current?.reset(); }}>Cancel</button>

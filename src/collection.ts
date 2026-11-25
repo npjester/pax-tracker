@@ -27,6 +27,7 @@ export function publisherMatches(publisher: string, exhibitor: string) {
 }
 
 export function parseCollection(csv: string): CollectionGame[] {
+  if (csv.includes('\0')) throw new Error('This CSV contains invalid null characters. Download a fresh copy from BoardGameGeek.');
   const parsed = Papa.parse<Record<string, string>>(csv, {
     header: true, delimiter: ',', skipEmptyLines: 'greedy', transformHeader: column,
   });
