@@ -35,6 +35,8 @@ yarn-error.log*
 .env*.local
 .env
 /supabase/.temp/
+/.impeccable/live/*
+!/.impeccable/live/config.json
 
 # vercel
 .vercel
