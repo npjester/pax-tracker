@@ -43,6 +43,14 @@ test('imports community averages separately from personal ratings and handles mi
   assert.equal(parseCollection('objectid,objectname,own\n4,Older export,1')[0].averageRating, undefined);
 });
 
+test('imports community complexity weights, including from other copies, and rejects invalid values', () => {
+  const games = parseCollection('objectid,objectname,own,wanttoplay,weight,avgweight\n'
+    + '1,Try this,0,1,5,\n1,Try this,0,0,1,3.456\n'
+    + '2,Unrated,0,1,5,0\n3,Invalid,0,1,2,5.1\n4,Light,0,1,4,1\n5,Heavy,0,1,1,5');
+  assert.deepEqual(games.map((game) => game.averageWeight), [3.456, null, null, 1, 5]);
+  assert.equal(parseCollection('objectid,objectname,own,weight\n6,Older export,1,4')[0].averageWeight, undefined);
+});
+
 test('reads publishers from the version_publishers column of BGG exports', () => {
   const csv = 'objectname,objectid,own,version_publishers\n'
     + 'A,1,1,"Rock, Stone &amp; Dice Games"\nB,2,1,Button Shy\nC,3,1,(Self-Published)\nD,4,1,';

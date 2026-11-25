@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { CollectionGame } from './collection';
-import { libraryGames } from './game-library';
+import { libraryCollection, libraryGames } from './game-library';
 import * as store from './store';
 
 const initialLimit = 36;
@@ -17,8 +17,8 @@ export function GameLibraryPage({ ownerId }: { ownerId: string }) {
     let active = true;
     setLoading(true);
     setError('');
-    void store.getCollection(ownerId).then((games) => {
-      if (active) setCollection(games);
+    void store.getSavedCollection(ownerId).then((saved) => {
+      if (active) setCollection(saved ? libraryCollection(saved) : null);
     }).catch((failure) => {
       if (active) setError(`Could not load your saved BGG collection. ${store.errorMessage(failure)}`);
     }).finally(() => {
@@ -30,6 +30,12 @@ export function GameLibraryPage({ ownerId }: { ownerId: string }) {
   const games = useMemo(() => libraryGames(collection ?? [], query), [collection, query]);
   const needsFlags = collection?.some((game) => game.wantToPlay === undefined);
   const needsScores = collection?.some((game) => game.wantToPlay && game.averageRating === undefined);
+  const needsWeights = collection?.some((game) => game.wantToPlay && game.averageWeight === undefined);
+  const missingFields = [
+    ...(needsFlags ? ['want-to-play flags'] : []),
+    ...(needsScores ? ['BGG scores'] : []),
+    ...(needsWeights ? ['BGG weights'] : []),
+  ];
 
   if (loading) return <p role="status">Loading your game library…</p>;
   if (error) return <div className="panel empty"><p className="error" role="alert">{error}</p>
@@ -42,20 +48,23 @@ export function GameLibraryPage({ ownerId }: { ownerId: string }) {
     <div className="library-intro">
       <div>
         <h2 id="library-heading">Want to play</h2>
-        <p>From your saved BGG collection, sorted by community average. Games without a score appear last.</p>
+        <p>From your saved BGG collection, sorted by community average. Games without a score appear last. BGG weight measures complexity from 1 (light) to 5 (heavy).</p>
       </div>
       <label>Find a game<input type="search" value={query} placeholder="Search titles" onChange={(event) => {
         setQuery(event.target.value);
         setLimit(initialLimit);
       }} /></label>
     </div>
-    {(needsFlags || needsScores) && <p>For {needsFlags ? 'want-to-play flags' : 'community scores'}, re-import a current BGG CSV on the <a href="#collection">Collection page</a>.</p>}
+    {missingFields.length > 0 && <p>For {missingFields.join(', ')}, re-import a current BGG CSV on the <a href="#collection">Collection page</a>.</p>}
     <p>Box art is not available yet. Select a title to view it on BoardGameGeek.</p>
     {games.length ? <>
       <p className="library-count">{games.length.toLocaleString()} {games.length === 1 ? 'game' : 'games'}{query.trim() ? ' found' : ' to play'}</p>
       <ul className="library-list">{games.slice(0, limit).map((game) => <li key={game.id}>
         <a href={`https://boardgamegeek.com/boardgame/${encodeURIComponent(game.id)}`} target="_blank" rel="noreferrer">{game.title}</a>
-        <span>{game.averageRating == null ? 'No BGG average' : <>BGG average <strong>{game.averageRating.toFixed(1)}</strong> / 10</>}</span>
+        <div className="library-metrics">
+          <span>{game.averageRating == null ? 'BGG score unavailable' : <>BGG score <strong>{game.averageRating.toFixed(1)}</strong> / 10</>}</span>
+          <span>{game.averageWeight == null ? 'BGG weight unavailable' : <>BGG weight <strong>{game.averageWeight.toFixed(1)}</strong> / 5</>}</span>
+        </div>
       </li>)}</ul>
       {games.length > limit && <button className="library-more" onClick={() => setLimit((value) => value + initialLimit)}>
         Show more games <span>({Math.min(limit, games.length)} of {games.length})</span>

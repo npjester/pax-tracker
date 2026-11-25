@@ -3,7 +3,7 @@ import { exhibitorId, type Exhibitor } from './expo.ts';
 
 export type CollectionGame = {
   id: string; title: string; publishers: string[]; owned: boolean; wanted: boolean;
-  wantToBuy?: boolean; wantToPlay?: boolean; rating: number | null; averageRating?: number | null;
+  wantToBuy?: boolean; wantToPlay?: boolean; rating: number | null; averageRating?: number | null; averageWeight?: number | null;
 };
 export type ExpoGame = { exhibitorId: string; title: string };
 export const collectionFileLimit = 5 * 1024 * 1024;
@@ -39,6 +39,7 @@ export function parseCollection(csv: string): CollectionGame[] {
     throw new Error('This CSV has malformed rows or duplicate columns. Download a fresh copy from BoardGameGeek.');
   }
   const games = new Map<string, CollectionGame>();
+  const weights = new Map<string, number>();
   for (const row of parsed.data) {
     const decode = (value: string) => value.replace(/&amp;/gi, '&');
     const listed = decode(row.boardgamepublisher || row.publisher || '').split(/[,;|]/);
@@ -53,6 +54,8 @@ export function parseCollection(csv: string): CollectionGame[] {
     const rating = Number.isFinite(number) && number >= 1 && number <= 10 ? number : null;
     const average = Number(row.average);
     const averageRating = Number.isFinite(average) && average >= 1 && average <= 10 ? average : null;
+    const weight = Number(row.avgweight);
+    if (Number.isFinite(weight) && weight >= 1 && weight <= 5) weights.set(row.objectid.trim(), weight);
     if (!owned && !wanted && rating === null) continue;
 
     const id = row.objectid.trim();
@@ -72,7 +75,9 @@ export function parseCollection(csv: string): CollectionGame[] {
   }
   if (!games.size) throw new Error('No owned, wanted, or rated games were found. Try the “all” collection export from BGG.');
   if (games.size > 10000) throw new Error('This collection exceeds the 10,000-game limit.');
-  return [...games.values()];
+  return [...games.values()].map((game) => fields.includes('avgweight')
+    ? { ...game, averageWeight: weights.get(game.id) ?? null }
+    : game);
 }
 
 export function parseExpoGames(payload: unknown): ExpoGame[] {

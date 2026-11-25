@@ -1,4 +1,9 @@
-import type { CollectionGame } from './collection.ts';
+import { parseCollection, type CollectionGame } from './collection.ts';
+import type { SavedCollection } from './store.ts';
+
+export function libraryCollection(saved: SavedCollection): CollectionGame[] {
+  return saved.sourceCsv === null ? saved.games : parseCollection(saved.sourceCsv);
+}
 
 export function libraryGames(collection: CollectionGame[], query = '') {
   const search = query.trim().toLocaleLowerCase();
