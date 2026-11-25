@@ -171,10 +171,11 @@ summary span { float: right; color: var(--muted); font: .8rem/1.8 var(--mono); }
 .additional-exhibits p { margin: .75rem 0; }
 .additional-exhibits ul { columns: 2 17rem; margin: 0; padding-left: 1.25rem; }
 .additional-exhibits li { break-inside: avoid; padding: .2rem 0; }
-.games-page, .game-plan, .game-plan-grid { display: grid; align-content: start; gap: .85rem; }
+.games-page, .game-plan-grid { display: grid; align-content: start; gap: .85rem; }
+.game-plan { display: flex; flex-direction: column; gap: .85rem; }
 .game-plan-heading { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: .25rem .75rem; }
 .game-plan-heading span { color: var(--muted); font-size: .85rem; white-space: nowrap; }
-.game-import { justify-self: start; }
+.game-import { justify-self: start; align-self: flex-start; }
 .game-plan-list { margin: 0; padding: 0; list-style: none; }
 .game-plan-list > li { border-top: 1px solid var(--line); }
 .game-plan-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0 .4rem; padding-block: .3rem; }
@@ -196,7 +197,7 @@ summary span { float: right; color: var(--muted); font: .8rem/1.8 var(--mono); }
 .game-booths li strong { overflow-wrap: anywhere; }
 .game-booths li p { font-size: .85rem; }
 .game-booths .actions .button, .game-booths .actions button { font-size: .85rem; }
-.game-pagination { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .5rem 1rem; padding-top: .8rem; border-top: 1px solid var(--line); }
+.game-pagination { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .5rem 1rem; margin-top: auto; padding-top: .8rem; border-top: 1px solid var(--line); }
 .game-pagination p, .game-pagination button { font-size: .85rem; }
 .game-pagination p span { white-space: nowrap; }
 .game-library { display: grid; align-content: start; gap: .85rem; }
