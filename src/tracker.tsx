@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { goals, type Priority } from './shortlist';
-import { boothNumberLimit, expoPage, type Exhibitor } from './expo';
+import { boothNumberLimit, expoPage, matchingBooth, type Exhibitor } from './expo';
 import { ExpoLookup } from './expo-lookup';
 import { CollectionPanel } from './collection-panel';
 import { MapPage } from './map-page';
@@ -17,7 +17,7 @@ const priorities: Record<Priority, string> = { must: 'Must visit', recommended: 
 function currentPage(): Page {
   const hash = window.location.hash;
   if (hash === '#games') return 'games';
-  if (hash === '#map') return 'map';
+  if (hash === '#map' || hash.startsWith('#map?')) return 'map';
   if (hash === '#collection' || hash === '#bgg-collection') return 'collection';
   if (hash === '#update' || hash === '#expo-lookup' || hash === '#add-booth') return 'update';
   return 'tracker';
@@ -189,6 +189,17 @@ export function Tracker({ ownerId, email }: { ownerId: string; email?: string })
     return saved;
   }
 
+  async function getOrImportExhibitor(entry: Exhibitor) {
+    const existing = matchingBooth(entry, booths ?? []);
+    if (existing) return existing;
+    let imported: Booth | null = null;
+    await run(() => store.addBooth({ ...entry, priority: 'regular' }), (booth) => {
+      imported = booth;
+      setBooths((items) => [...(items ?? []), booth]);
+    }, 'import exhibitor');
+    return imported;
+  }
+
   const list = booths ?? [];
   const visited = list.filter((b) => b.visited).length;
   const must = list.filter((b) => b.priority === 'must' && !b.visited).length;
@@ -261,7 +272,7 @@ export function Tracker({ ownerId, email }: { ownerId: string; email?: string })
       <CollectionPanel ownerId={ownerId} booths={list} busy={busy} onImport={importExhibitor} />
     }
     {booths && page === 'map' && <MapPage booths={list} ownerId={ownerId} />}
-    {booths && page === 'games' && <GamesPage ownerId={ownerId} />}
+    {booths && page === 'games' && <GamesPage ownerId={ownerId} booths={list} boothBusy={busy} onGetBooth={getOrImportExhibitor} />}
     {booths && page === 'update' && <>
       <ExpoLookup booths={list} busy={busy} onImport={importExhibitor} onUpdate={(booth, entry) => run(() => store.updateBooth(booth.id, { booth_number: entry.booth_number }),
         (saved) => editBooth(booth.id, (b) => ({ ...b, ...saved })), 'update booth number')} />

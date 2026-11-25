@@ -17,6 +17,11 @@ const additionalExhibits = [
 ];
 
 export function MapPage({ booths, ownerId }: { booths: Booth[]; ownerId: string }) {
+  const [mapLink] = useState(() => {
+    const params = new URLSearchParams(window.location.hash.split('?')[1] ?? '');
+    const number = params.get('booth');
+    return { number: mappedBooths.some((position) => position.number === number) ? number : null, search: params.get('search') ?? '' };
+  });
   const [restored] = useState(() => {
     try {
       return { state: readMapState(localStorage, ownerId), error: false };
@@ -29,14 +34,14 @@ export function MapPage({ booths, ownerId }: { booths: Booth[]; ownerId: string 
   const [startValue, setStartValue] = useState(restored.state.startValue);
   const [choices, setChoices] = useState<Record<string, string>>(restored.state.choices);
   const [fitMap, setFitMap] = useState(false);
-  const [zoomed, setZoomed] = useState(false);
-  const [selectedNumber, setSelectedNumber] = useState<string | null>(null);
+  const [zoomed, setZoomed] = useState(!!mapLink.number);
+  const [selectedNumber, setSelectedNumber] = useState<string | null>(mapLink.number);
   const [activeStopId, setActiveStopId] = useState<string | null>(restored.state.activeStopId);
   const [storageError, setStorageError] = useState(restored.error);
   const [restoreFailed, setRestoreFailed] = useState(restored.error);
   const [startSearch, setStartSearch] = useState('');
-  const [boothSearch, setBoothSearch] = useState('');
-  const [focusRequest, setFocusRequest] = useState<{ number: string } | null>(null);
+  const [boothSearch, setBoothSearch] = useState(mapLink.search);
+  const [focusRequest, setFocusRequest] = useState<{ number: string } | null>(mapLink.number ? { number: mapLink.number } : null);
   const [directory, setDirectory] = useState<Exhibitor[]>([]);
   const [directoryStatus, setDirectoryStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [directoryAttempt, setDirectoryAttempt] = useState(0);

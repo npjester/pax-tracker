@@ -1,9 +1,15 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react';
-import type { CollectionGame } from './collection';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { parseExpoGames, type CollectionGame, type ExpoGame } from './collection';
+import { boothNumbers, mappedBooths, partitionStops } from './booth-route';
+import { expoGamesFeed, fetchDirectory, type Exhibitor } from './expo';
+import { matchGameBooths } from './game-booths';
+import { includeBoothInRoute, readMapState, saveMapState } from './map-state';
 import * as store from './store';
-import type { GamePlan, GamePlanKind } from './store';
+import type { Booth, GamePlan, GamePlanKind } from './store';
 
-export function GamesPage({ ownerId }: { ownerId: string }) {
+export function GamesPage({ ownerId, booths, boothBusy, onGetBooth }: {
+  ownerId: string; booths: Booth[]; boothBusy: boolean; onGetBooth: (entry: Exhibitor) => Promise<Booth | null>;
+}) {
   const [games, setGames] = useState<GamePlan[] | null>(null);
   const [collection, setCollection] = useState<CollectionGame[] | null>(null);
   const [collectionLoaded, setCollectionLoaded] = useState(false);
@@ -11,6 +17,9 @@ export function GamesPage({ ownerId }: { ownerId: string }) {
   const [error, setError] = useState('');
   const [collectionError, setCollectionError] = useState('');
   const [message, setMessage] = useState('');
+  const [catalog, setCatalog] = useState<{ exhibitors: Exhibitor[]; listings: ExpoGame[] } | null>(null);
+  const [catalogError, setCatalogError] = useState('');
+  const [catalogAttempt, setCatalogAttempt] = useState(0);
   const active = useRef(true);
   const pending = useRef(false);
 
@@ -28,6 +37,26 @@ export function GamesPage({ ownerId }: { ownerId: string }) {
     });
     return () => { active.current = false; };
   }, [ownerId]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setCatalogError('');
+    setCatalog(null);
+    const listings = fetch(expoGamesFeed, { signal: AbortSignal.any([controller.signal, AbortSignal.timeout(10000)]), cache: 'no-store' }).then(async (response) => {
+      if (!response.ok) throw new Error('The PAX game listings could not be loaded.');
+      return parseExpoGames(await response.json());
+    });
+    void Promise.all([fetchDirectory(controller.signal), listings]).then(([exhibitors, entries]) => {
+      if (!controller.signal.aborted) setCatalog({ exhibitors, listings: entries });
+    }).catch((error) => {
+      if (!controller.signal.aborted) setCatalogError(`Could not find booths. ${store.errorMessage(error)}`);
+    });
+    return () => controller.abort();
+  }, [catalogAttempt]);
+
+  const boothMatches = useMemo(() => new Map((games ?? []).map((game) => [
+    game.id, catalog ? matchGameBooths(game.title, collection ?? [], catalog.exhibitors, catalog.listings) : [],
+  ])), [games, collection, catalog]);
 
   async function run(action: () => Promise<void>) {
     if (pending.current) return false;
@@ -77,6 +106,31 @@ export function GamesPage({ ownerId }: { ownerId: string }) {
     });
   }
 
+  async function addToRoute(entry: Exhibitor) {
+    await run(async () => {
+      let state;
+      try {
+        state = readMapState(localStorage, ownerId);
+      } catch {
+        throw new Error('Could not read map settings. Open Map & route to resolve the storage issue before adding a stop.');
+      }
+      const booth = await onGetBooth(entry);
+      if (!booth) throw new Error(`Could not add ${entry.name} to your checklist. Try again.`);
+      const allBooths = [...booths.filter((item) => item.id !== booth.id), booth];
+      const updated = includeBoothInRoute(state, allBooths, booth.id);
+      try {
+        saveMapState(localStorage, ownerId, updated);
+      } catch {
+        throw new Error(`${booth.name} is on your checklist, but could not be added to the route. Check browser storage and try again.`);
+      }
+      const included = allBooths.filter((item) => updated.selected.includes(item.id));
+      const unresolved = partitionStops(included, updated.choices).unmapped.some((item) => item.id === booth.id);
+      if (active.current) setMessage(unresolved
+        ? `${booth.name} is selected for your route, but its location needs attention on Map & route before it can be included.`
+        : `${booth.name} added to your route. Choose a starting location on Map & route if needed.`);
+    });
+  }
+
   function section(kind: GamePlanKind, heading: string) {
     const flag = kind === 'try' ? 'wantToPlay' : 'wantToBuy';
     const column = kind === 'try' ? 'wanttoplay' : 'wanttobuy';
@@ -98,6 +152,7 @@ export function GamesPage({ ownerId }: { ownerId: string }) {
         <button disabled={busy || !games}>Add</button>
       </form>
       {items.length ? <ul className="game-plan-list">{items.map((game) => <li key={game.id}>
+        <div className="game-plan-row">
         <label><input type="checkbox" checked={game.checked} disabled={busy} onChange={(event) => void run(async () => {
           const saved = await store.checkGamePlan(game.id, event.target.checked);
           if (active.current) setGames((current) => current?.map((item) => item.id === saved.id ? saved : item) ?? null);
@@ -106,6 +161,24 @@ export function GamesPage({ ownerId }: { ownerId: string }) {
           await store.removeGamePlan(game.id);
           if (active.current) setGames((current) => current?.filter((item) => item.id !== game.id) ?? null);
         })}>Remove<span className="sr-only"> {game.title} from {heading}</span></button>
+        </div>
+        <details className="game-booths">
+          <summary>Find booths<span className="sr-only"> for {game.title}</span></summary>
+          {catalogError ? <p>Booth matches are unavailable. Try reloading below.</p> : !catalog ? <p>Loading booth matches…</p> :
+            !boothMatches.get(game.id)?.length ? <p>No matching booths found. PAX listings may be incomplete; publisher matches require a saved BGG collection.</p> :
+              <ul>{boothMatches.get(game.id)?.map(({ booth, reason }) => {
+                const numbers = boothNumbers(booth.booth_number);
+                const number = numbers.length === 1 && mappedBooths.some((position) => position.number === numbers[0]) ? numbers[0] : null;
+                const href = number ? `#map?booth=${encodeURIComponent(number)}` : `#map?search=${encodeURIComponent(booth.name)}`;
+                return <li key={booth.id}>
+                  <div><strong>{booth.name}</strong><p>{booth.booth_number ? `Booth ${booth.booth_number}` : 'Booth TBD'} · {reason}</p></div>
+                  <div className="actions">
+                    <a className="button" href={href}>{number ? 'View on map' : 'Find on map'}<span className="sr-only">: {booth.name}</span></a>
+                    <button disabled={busy || boothBusy} onClick={() => void addToRoute(booth)}>Add to route<span className="sr-only">: {booth.name}</span></button>
+                  </div>
+                </li>;
+              })}</ul>}
+        </details>
       </li>)}</ul> : <p>{games ? 'No games added yet.' : error ? 'Game list unavailable.' : 'Loading games…'}</p>}
     </section>;
   }
@@ -117,6 +190,8 @@ export function GamesPage({ ownerId }: { ownerId: string }) {
       if (active.current) setGames(items);
     })}>Retry loading games</button>}
     {message && <p role="status">{message}</p>}
+    {catalogError && <p className="error" role="alert">{catalogError} <button type="button" className="text-button" onClick={() => setCatalogAttempt((n) => n + 1)}>Retry booth lookup</button></p>}
+    <p>Find booths from the PAX game listings or publishers in your saved BGG collection. Adding a booth includes it in your device’s route and checklist.</p>
     <div className="game-plan-grid">
       {section('try', 'Games to Try')}
       {section('buy', 'Games to Buy')}

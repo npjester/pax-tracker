@@ -32,3 +32,9 @@ export function readMapState(storage: Storage, ownerId: string): MapState {
 export function saveMapState(storage: Storage, ownerId: string, state: MapState) {
   storage.setItem(`pax-tracker-map:${ownerId}`, JSON.stringify(state));
 }
+
+export function includeBoothInRoute(state: MapState, booths: { id: string; visited: boolean }[], boothId: string): MapState {
+  const included = state.scope === 'selected' ? state.selected :
+    booths.filter((booth) => state.scope === 'all' || !booth.visited).map((booth) => booth.id);
+  return { ...state, scope: 'selected', selected: [...new Set([...included, boothId])] };
+}

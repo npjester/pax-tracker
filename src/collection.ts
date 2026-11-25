@@ -8,7 +8,7 @@ export type CollectionGame = {
 export type ExpoGame = { exhibitorId: string; title: string };
 export const collectionFileLimit = 5 * 1024 * 1024;
 const column = (name: string) => name.trim().toLowerCase().replace(/[\s_-]+/g, '');
-const titleKey = (name: string) => name.normalize('NFKD').toLowerCase().replace(/\p{M}/gu, '').replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+export const titleKey = (name: string) => name.normalize('NFKD').toLowerCase().replace(/\p{M}/gu, '').replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
 const marked = (value?: string) => /^(1|true|yes)$/i.test(value?.trim() ?? '');
 const companyKey = (name: string) => titleKey(name).replace(/\b(llc|inc|ltd|limited|corp|corporation|company|co)\b/g, ' ').replace(/\s+/g, ' ').trim();
 const genericPublisherWords = new Set(['a', 'and', 'company', 'edition', 'game', 'games', 'inc', 'ltd', 'llc', 'of', 'publishing', 'publisher', 'publishers', 'the']);
