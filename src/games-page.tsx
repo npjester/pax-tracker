@@ -20,6 +20,7 @@ export function GamesPage({ ownerId, booths, boothBusy, onGetBooth }: {
   const [catalog, setCatalog] = useState<{ exhibitors: Exhibitor[]; listings: ExpoGame[] } | null>(null);
   const [catalogError, setCatalogError] = useState('');
   const [catalogAttempt, setCatalogAttempt] = useState(0);
+  const [expandedBooths, setExpandedBooths] = useState<Set<string>>(() => new Set());
   const active = useRef(true);
   const pending = useRef(false);
 
@@ -137,7 +138,10 @@ export function GamesPage({ ownerId, booths, boothBusy, onGetBooth }: {
     const action = kind === 'try' ? 'play' : 'buy';
     const items = (games ?? []).filter((game) => game.kind === kind).sort((a, b) => a.title.localeCompare(b.title));
     return <section className="panel game-plan" aria-labelledby={`${kind}-heading`}>
-      <h2 id={`${kind}-heading`}>{heading}</h2>
+      <div className="game-plan-heading">
+        <h2 id={`${kind}-heading`}>{heading}</h2>
+        {games && <span>{items.length} {items.length === 1 ? 'game' : 'games'}</span>}
+      </div>
       <>
         <p>Import games marked “want to {action}” in your saved BGG collection. Existing entries stay on your list.</p>
         {collectionError && <p className="error" role="alert">{collectionError}</p>}
@@ -151,22 +155,36 @@ export function GamesPage({ ownerId, booths, boothBusy, onGetBooth }: {
         <input aria-label={`Add a game to ${heading}`} name="title" placeholder="Game title" required maxLength={300} disabled={busy || !games} />
         <button disabled={busy || !games}>Add</button>
       </form>
-      {items.length ? <ul className="game-plan-list">{items.map((game) => <li key={game.id}>
-        <div className="game-plan-row">
-        <label><input type="checkbox" checked={game.checked} disabled={busy} onChange={(event) => void run(async () => {
-          const saved = await store.checkGamePlan(game.id, event.target.checked);
-          if (active.current) setGames((current) => current?.map((item) => item.id === saved.id ? saved : item) ?? null);
-        })} /><span>{game.title}</span></label>
-        <button className="text-button" disabled={busy} onClick={() => void run(async () => {
-          await store.removeGamePlan(game.id);
-          if (active.current) setGames((current) => current?.filter((item) => item.id !== game.id) ?? null);
-        })}>Remove<span className="sr-only"> {game.title} from {heading}</span></button>
-        </div>
-        <details className="game-booths">
-          <summary>Find booths<span className="sr-only"> for {game.title}</span></summary>
-          {catalogError ? <p>Booth matches are unavailable. Try reloading below.</p> : !catalog ? <p>Loading booth matches…</p> :
-            !boothMatches.get(game.id)?.length ? <p>No matching booths found. PAX listings may be incomplete; publisher matches require a saved BGG collection.</p> :
-              <ul>{boothMatches.get(game.id)?.map(({ booth, reason }) => {
+      {items.length ? <ul className="game-plan-list">{items.map((game) => {
+        const matches = boothMatches.get(game.id) ?? [];
+        const expanded = expandedBooths.has(game.id);
+        const boothLabel = catalogError ? 'Booths unavailable' : !catalog ? 'Find booths' :
+          matches.length ? `${matches.length} ${matches.length === 1 ? 'booth match' : 'booth matches'}` : 'No booth matches';
+        return <li key={game.id}>
+          <div className="game-plan-row">
+            <label><input type="checkbox" checked={game.checked} disabled={busy} onChange={(event) => void run(async () => {
+              const saved = await store.checkGamePlan(game.id, event.target.checked);
+              if (active.current) setGames((current) => current?.map((item) => item.id === saved.id ? saved : item) ?? null);
+            })} /><span>{game.title}</span></label>
+            <button type="button" className={`game-booths-toggle${matches.length ? ' has-matches' : ''}`}
+              aria-expanded={expanded} aria-controls={`game-booths-${game.id}`} onClick={() => setExpandedBooths((current) => {
+                const next = new Set(current);
+                if (next.has(game.id)) next.delete(game.id);
+                else next.add(game.id);
+                return next;
+              })}>
+              {boothLabel}<span className="sr-only"> for {game.title}</span>
+              <svg aria-hidden="true" viewBox="0 0 16 16" className="game-booths-chevron"><path d="m4 6 4 4 4-4" /></svg>
+            </button>
+            <button className="text-button game-remove" disabled={busy} onClick={() => void run(async () => {
+              await store.removeGamePlan(game.id);
+              if (active.current) setGames((current) => current?.filter((item) => item.id !== game.id) ?? null);
+            })}>Remove<span className="sr-only"> {game.title} from {heading}</span></button>
+          </div>
+          <div id={`game-booths-${game.id}`} className="game-booths" hidden={!expanded}>
+            {catalogError ? <p>Booth matches are unavailable. Try reloading below.</p> : !catalog ? <p>Loading booth matches…</p> :
+              !matches.length ? <p>No matching booths found. PAX listings may be incomplete; publisher matches require a saved BGG collection.</p> :
+              <ul>{matches.map(({ booth, reason }) => {
                 const numbers = boothNumbers(booth.booth_number);
                 const number = numbers.length === 1 && mappedBooths.some((position) => position.number === numbers[0]) ? numbers[0] : null;
                 const href = number ? `#map?booth=${encodeURIComponent(number)}` : `#map?search=${encodeURIComponent(booth.name)}`;
@@ -178,8 +196,9 @@ export function GamesPage({ ownerId, booths, boothBusy, onGetBooth }: {
                   </div>
                 </li>;
               })}</ul>}
-        </details>
-      </li>)}</ul> : <p>{games ? 'No games added yet.' : error ? 'Game list unavailable.' : 'Loading games…'}</p>}
+          </div>
+        </li>;
+      })}</ul> : <p>{games ? 'No games added yet.' : error ? 'Game list unavailable.' : 'Loading games…'}</p>}
     </section>;
   }
 
