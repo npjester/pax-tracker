@@ -264,3 +264,7 @@ summary::after { content: ''; display: block; clear: both; }
   .map-layout { grid-template-columns: minmax(0, 2fr) minmax(220px, 1fr); align-items: start; }
   .game-plan-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+.map-booth-actions { display: grid; gap: .5rem; padding: .65rem 1rem; border-top: 1px solid var(--line); }
+.map-booth-action { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: .5rem 1rem; }
+.map-booth-action label { flex: 1 1 12rem; }
+.route-list li { display: grid; gap: .35rem; }

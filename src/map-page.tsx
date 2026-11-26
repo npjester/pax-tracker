@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { aisles, boothNumbers, boothPoint, exhibitorNames, mappedBooths, partitionStops, planRoute, queueEntrance, type MapPosition, type RouteStart } from './booth-route';
-import { fetchDirectory, type Exhibitor } from './expo';
+import { fetchDirectory, matchingBooth, type Exhibitor } from './expo';
 import { initialMapState, readMapState, saveMapState, type Scope } from './map-state';
 import type { Booth } from './store';
 
@@ -16,7 +16,13 @@ const additionalExhibits = [
   ['Suspense Studio', '117'], ['Winding Path Initiative', '120A'],
 ];
 
-export function MapPage({ booths, ownerId }: { booths: Booth[]; ownerId: string }) {
+type NewBooth = { id?: string; name: string; booth_number: string };
+
+export function MapPage({ booths, ownerId, busy, onAdd, onVisit }: {
+  booths: Booth[]; ownerId: string; busy: boolean;
+  onAdd: (entry: NewBooth) => Promise<Booth | null>;
+  onVisit: (booth: Booth, visited: boolean) => Promise<boolean>;
+}) {
   const [mapLink] = useState(() => {
     const params = new URLSearchParams(window.location.hash.split('?')[1] ?? '');
     const number = params.get('booth');
@@ -45,6 +51,7 @@ export function MapPage({ booths, ownerId }: { booths: Booth[]; ownerId: string 
   const [directory, setDirectory] = useState<Exhibitor[]>([]);
   const [directoryStatus, setDirectoryStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [directoryAttempt, setDirectoryAttempt] = useState(0);
+  const [customName, setCustomName] = useState('');
   const boothElements = useRef(new Map<string, SVGGElement>());
 
   useEffect(() => {
@@ -88,6 +95,9 @@ export function MapPage({ booths, ownerId }: { booths: Booth[]; ownerId: string 
   const stops = route?.stops ?? [];
   const line = route?.points.map((point) => `${point.x},${point.y}`).join(' ') ?? '';
   const selectedPosition = mappedBooths.find((position) => position.number === selectedNumber);
+  const selectedBooths = selectedPosition ? booths.filter((booth) => boothNumbers(booth.booth_number).includes(selectedPosition.number)) : [];
+  const addable = selectedPosition ? directory.filter((entry) => boothNumbers(entry.booth_number).includes(selectedPosition.number) &&
+    !matchingBooth(entry, booths)) : [];
   const selectedNames = selectedPosition ? exhibitorNames(selectedPosition, directory, booths) : [];
   const boothNames = useMemo(() => new Map(mappedBooths.map((position) =>
     [position.number, exhibitorNames(position, directory, booths)])), [directory, booths]);
@@ -105,6 +115,19 @@ export function MapPage({ booths, ownerId }: { booths: Booth[]; ownerId: string 
   const foundBooths = boothSearch.trim() ? matchingBooths(boothSearch) : [];
   const activeIndex = Math.max(0, stops.findIndex((stop) => stop.booth.id === activeStopId));
   const activeStop = stops[activeIndex];
+
+  async function addToChecklist(entry: NewBooth) {
+    const added = await onAdd(entry);
+    if (added) setSelected((items) => [...items, added.id]);
+    return added;
+  }
+
+  function routeToggle(booth: Booth) {
+    if (scope !== 'selected') return null;
+    const inRoute = selected.includes(booth.id);
+    return <button type="button" onClick={() => setSelected((items) => inRoute ? items.filter((id) => id !== booth.id) : [...items, booth.id])}>
+      {inRoute ? 'Remove from route' : 'Add to route'}<span className="sr-only"> {booth.name}</span></button>;
+  }
 
   function selectBooth(position: MapPosition) {
     setSelectedNumber(position.number);
@@ -245,6 +268,28 @@ export function MapPage({ booths, ownerId }: { booths: Booth[]; ownerId: string 
             {directoryStatus === 'error' && <p>Couldn’t load the official directory. <button type="button" className="text-button" onClick={() => setDirectoryAttempt((n) => n + 1)}>Retry</button></p>}
           </> : <p>Tap a booth to see its exhibitor, or search above. Use arrow keys to move between booths.</p>}
         </div>
+        {selectedPosition && <div className="map-booth-actions">
+          {selectedBooths.map((booth) => <div key={booth.id} className="map-booth-action">
+            <span>{booth.name}{booth.visited ? ' · Visited' : ''}</span>
+            <div className="actions">
+              <button type="button" disabled={busy} onClick={() => void onVisit(booth, !booth.visited)}>
+                {booth.visited ? 'Mark not visited' : 'Mark visited'}<span className="sr-only"> {booth.name}</span></button>
+              {routeToggle(booth)}
+            </div>
+          </div>)}
+          {addable.map((entry) => <div key={entry.id} className="map-booth-action">
+            <span>{entry.name}</span>
+            <button type="button" disabled={busy} onClick={() => void addToChecklist(entry)}>Add to checklist<span className="sr-only"> {entry.name}</span></button>
+          </div>)}
+          {!selectedBooths.length && !addable.length && <form className="map-booth-action" onSubmit={async (event) => {
+            event.preventDefault();
+            const name = customName.trim();
+            if (name && await addToChecklist({ name, booth_number: selectedPosition.number })) setCustomName('');
+          }}>
+            <label>Exhibitor name<input value={customName} maxLength={100} required onChange={(event) => setCustomName(event.target.value)} /></label>
+            <button disabled={busy}>Add booth {selectedPosition.number} to checklist</button>
+          </form>}
+        </div>}
         {activeStop && <div className="route-navigation" aria-label="Route navigation">
           <div aria-live="polite"><span>Stop {activeIndex + 1} of {stops.length}</span><strong>{activeStop.booth.name} · {activeStop.position.number}</strong></div>
           <div className="actions">
@@ -306,7 +351,8 @@ export function MapPage({ booths, ownerId }: { booths: Booth[]; ownerId: string 
           !mapped.length ? <p>{multipleLocations.some(({ booth, numbers }) => !choices[booth.id] && mappedBooths.some((position) => numbers.includes(position.number))) ?
             'Choose a mapped location above to include it in the route.' : 'None of the included booths are in the mapped section yet.'}</p> :
             !start ? <p>Choose a starting location to see the route.</p> : <ol>
-              {stops.map(({ booth, position }, index) => <li key={booth.id}><button type="button" className="route-stop" aria-current={index === activeIndex ? 'step' : undefined} onClick={() => showStop(index)}><strong>{booth.name}</strong><span>Booth {position.number}{booth.visited ? ' · Visited' : ''}</span></button></li>)}
+              {stops.map(({ booth, position }, index) => <li key={booth.id}><button type="button" className="route-stop" aria-current={index === activeIndex ? 'step' : undefined} onClick={() => showStop(index)}><strong>{booth.name}</strong><span>Booth {position.number}{booth.visited ? ' · Visited' : ''}</span></button>
+                <button type="button" disabled={busy} onClick={() => void onVisit(booth, !booth.visited)}>{booth.visited ? 'Mark not visited' : 'Mark visited'}<span className="sr-only"> {booth.name}</span></button></li>)}
             </ol>}
         {unmapped.length > 0 && <div className="unmapped">
           <h3>Not included on map ({unmapped.length})</h3>

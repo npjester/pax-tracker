@@ -244,19 +244,30 @@ export function Tracker({ ownerId, email }: { ownerId: string; email?: string })
     }
   }
 
+  async function addToChecklist(entry: { id?: string; name: string; booth_number: string }) {
+    let added: Booth | null = null;
+    await run(() => store.addBooth({ ...entry, priority: 'regular' }), (booth) => {
+      added = booth;
+      setBooths((items) => [...(items ?? []), booth]);
+    }, 'add booth');
+    return added as Booth | null;
+  }
+
   async function addBooth(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = event.currentTarget;
     const data = new FormData(form);
     const name = String(data.get('name')).trim();
     if (!name) { setError('Enter an exhibitor name.'); return; }
-    if (await run(() => store.addBooth({ name, booth_number: String(data.get('booth')).trim(), priority: 'regular' }),
-      (booth) => setBooths((items) => [...(items ?? []), booth]), 'add booth')) {
+    if (await addToChecklist({ name, booth_number: String(data.get('booth')).trim() })) {
       form.reset();
       setFilter('all');
       setQuery('');
     }
   }
+
+  const setVisited = (booth: Booth, visited: boolean) => run(() => store.updateBooth(booth.id, { visited }),
+    (saved) => editBooth(booth.id, (b) => ({ ...b, ...saved })), 'save booth');
 
   function editBooth(id: string, change: (booth: Booth) => Booth) {
     setBooths((items) => items?.map((item) => item.id === id ? change(item) : item) ?? null);
@@ -338,6 +349,14 @@ export function Tracker({ ownerId, email }: { ownerId: string; email?: string })
             </select></label>
           </div>
         </section>
+        <details className="panel add-booth">
+          <summary>Add a booth to your checklist</summary>
+          <form className="add-form" onSubmit={addBooth}>
+            <label>Exhibitor name<input name="name" required maxLength={100} placeholder="Publisher or exhibitor" /></label>
+            <label>Booth number<input name="booth" maxLength={boothNumberLimit} placeholder="Optional" /></label>
+            <button className="primary" disabled={busy}>Add booth</button>
+          </form>
+        </details>
         <div className="list-heading"><h2>Booth checklist</h2><span>{shown.length} of {list.length}</span></div>
         <div className="booth-grid">{shown.map((booth) => <BoothCard key={booth.id} booth={booth} busy={busy} planned={plannedMatches.get(booth.id) ?? []}
           update={(changes) => run(() => store.updateBooth(booth.id, changes), (saved) => editBooth(booth.id, (b) => ({ ...b, ...saved })), 'save booth')}
@@ -358,7 +377,7 @@ export function Tracker({ ownerId, email }: { ownerId: string; email?: string })
     {booths && page === 'collection' &&
       <CollectionPanel ownerId={ownerId} booths={list} busy={busy} onImport={importExhibitor} />
     }
-    {booths && page === 'map' && <MapPage booths={list} ownerId={ownerId} />}
+    {booths && page === 'map' && <MapPage booths={list} ownerId={ownerId} busy={busy} onAdd={addToChecklist} onVisit={setVisited} />}
     {booths && page === 'games' && <GamesPage ownerId={ownerId} booths={list} boothBusy={busy} onGetBooth={getOrImportExhibitor} />}
     {booths && page === 'library' && <GameLibraryPage ownerId={ownerId} />}
     {booths && page === 'update' && <>
